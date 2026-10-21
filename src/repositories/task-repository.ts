@@ -201,6 +201,75 @@ export async function listTaskHistory(db: SQLiteDatabase, taskId: string): Promi
   return rows.map(mapHistory);
 }
 
+export type HistoryTaskRecord = {
+  id: string;
+  title: string;
+  scheduledDate: string;
+  status: TaskStatus;
+  postponedCount: number;
+  originalScheduledDate: string;
+};
+
+export type ActivityEventRecord = {
+  id: string;
+  taskId: string;
+  eventType: 'completed' | 'reopened' | 'rescheduled';
+  fromDate?: string;
+  toDate?: string;
+  timestamp: string;
+};
+
+export async function listActiveTaskSummaries(db: SQLiteDatabase): Promise<HistoryTaskRecord[]> {
+  const rows = await db.getAllAsync<{
+    id: string;
+    title: string;
+    scheduled_date: string;
+    status: string;
+    postponed_count: number;
+    original_scheduled_date: string;
+  }>(
+    `SELECT id, title, scheduled_date, status, postponed_count, original_scheduled_date
+     FROM tasks
+     WHERE deleted_at IS NULL
+     ORDER BY scheduled_date ASC, title ASC`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    scheduledDate: row.scheduled_date,
+    status: assertStatus(row.status),
+    postponedCount: row.postponed_count,
+    originalScheduledDate: row.original_scheduled_date,
+  }));
+}
+
+export async function listActivityEvents(db: SQLiteDatabase): Promise<ActivityEventRecord[]> {
+  const rows = await db.getAllAsync<HistoryRow>(
+    `SELECT h.id, h.task_id, h.event_type, h.from_date, h.to_date, h.timestamp
+     FROM task_history h
+     INNER JOIN tasks t ON t.id = h.task_id
+     WHERE t.deleted_at IS NULL
+       AND h.event_type IN ('completed', 'reopened', 'rescheduled')
+     ORDER BY h.timestamp ASC, h.rowid ASC`,
+  );
+  return rows.flatMap((row) => {
+    const eventType = assertEventType(row.event_type);
+    if (eventType !== 'completed' && eventType !== 'reopened' && eventType !== 'rescheduled') {
+      return [];
+    }
+    return [
+      {
+        id: row.id,
+        taskId: row.task_id,
+        eventType,
+        fromDate: row.from_date ?? undefined,
+        toDate: row.to_date ?? undefined,
+        timestamp: row.timestamp,
+      },
+    ];
+  });
+}
+
 export async function insertTask(db: SQLiteDatabase, record: NewTaskRecord): Promise<Task> {
   await db.runAsync(
     `INSERT INTO tasks (
