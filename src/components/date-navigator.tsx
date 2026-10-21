@@ -9,6 +9,7 @@ import { formatDayHeading, todayKey } from '@/utils/date';
 type DateNavigatorProps = {
   dateKey: string;
   view: CalendarView;
+  showBrand?: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -26,7 +27,14 @@ const NEXT_LABEL: Record<CalendarView, string> = {
   month: 'Next month',
 };
 
-export function DateNavigator({ dateKey, view, onPrevious, onNext, onToday }: DateNavigatorProps) {
+export function DateNavigator({
+  dateKey,
+  view,
+  showBrand = true,
+  onPrevious,
+  onNext,
+  onToday,
+}: DateNavigatorProps) {
   const theme = useTheme();
   const heading =
     view === 'month'
@@ -38,69 +46,90 @@ export function DateNavigator({ dateKey, view, onPrevious, onNext, onToday }: Da
 
   return (
     <View style={styles.container}>
-      <ThemedText type="small" themeColor="textSecondary">
-        DayFlow
-      </ThemedText>
-      <View style={styles.row}>
+      {showBrand ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          DayFlow
+        </ThemedText>
+      ) : null}
+      <View style={styles.heading}>
+        <ThemedText
+          accessibilityRole="header"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          style={styles.title}>
+          {heading.title}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {heading.detail}
+        </ThemedText>
+      </View>
+      <View style={styles.controls}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={PREVIOUS_LABEL[view]}
           onPress={onPrevious}
-          style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}>
-          <ThemedText style={styles.chevron}>‹</ThemedText>
+          style={({ pressed }) => [
+            styles.control,
+            { backgroundColor: theme.backgroundElement },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText type="smallBold">Previous</ThemedText>
         </Pressable>
-        <View style={styles.heading}>
-          <ThemedText
-            accessibilityRole="header"
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            style={styles.title}>
-            {heading.title}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {heading.detail}
-          </ThemedText>
-        </View>
+        {isToday ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go to today"
+            onPress={onToday}
+            style={({ pressed }) => [
+              styles.control,
+              { backgroundColor: theme.backgroundSelected },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold">Today</ThemedText>
+          </Pressable>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={NEXT_LABEL[view]}
           onPress={onNext}
-          style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}>
-          <ThemedText style={styles.chevron}>›</ThemedText>
-        </Pressable>
-      </View>
-      {isToday ? null : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go to today"
-          onPress={onToday}
           style={({ pressed }) => [
-            styles.todayButton,
+            styles.control,
             { backgroundColor: theme.backgroundElement },
             pressed && styles.pressed,
           ]}>
-          <ThemedText type="smallBold">Today</ThemedText>
+          <ThemedText type="smallBold">Next</ThemedText>
         </Pressable>
-      )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: Spacing.two },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  heading: { flex: 1, gap: Spacing.half },
-  title: { fontSize: 32, lineHeight: 38, fontWeight: 600 },
-  stepButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  chevron: { fontSize: 34, lineHeight: 38 },
-  todayButton: {
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.five,
+  container: {
+    gap: Spacing.two,
+  },
+  heading: {
+    gap: Spacing.half,
+  },
+  title: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: 600,
+  },
+  controls: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  control: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
   },
-  pressed: { opacity: 0.7 },
+  pressed: {
+    opacity: 0.7,
+  },
 });
