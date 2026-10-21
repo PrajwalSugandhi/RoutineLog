@@ -1,3 +1,3 @@
 export const DATABASE_NAME = 'dayflow.db';
 
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
