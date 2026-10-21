@@ -41,6 +41,20 @@ CREATE TABLE IF NOT EXISTS task_history (
 CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON task_history (task_id);
 `;
 
+const REVIEW_SCHEMA = `
+CREATE TABLE IF NOT EXISTS day_reviews (
+  review_date TEXT PRIMARY KEY NOT NULL CHECK (
+    review_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+  ),
+  status TEXT NOT NULL CHECK (
+    status IN ('not_started', 'in_progress', 'completed_clear', 'completed_with_unresolved')
+  ),
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL
+);
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = versionRow?.user_version ?? 0;
@@ -52,5 +66,6 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   }
 
+  await db.execAsync(REVIEW_SCHEMA);
   await db.execAsync('PRAGMA foreign_keys = ON;');
 }

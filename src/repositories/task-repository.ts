@@ -173,6 +173,23 @@ export async function listTasksForDateRange(
   return rows.map(mapTask);
 }
 
+export async function listTasksMovedFromDate(db: SQLiteDatabase, dateKey: string): Promise<Task[]> {
+  const rows = await db.getAllAsync<TaskRow>(
+    `SELECT ${TASK_COLUMNS}
+     FROM tasks
+     WHERE deleted_at IS NULL
+       AND scheduled_date != ?
+       AND id IN (
+         SELECT task_id FROM task_history
+         WHERE event_type = 'rescheduled' AND from_date = ?
+       )
+     ORDER BY scheduled_date ASC, ${TASK_ORDER}`,
+    dateKey,
+    dateKey,
+  );
+  return rows.map(mapTask);
+}
+
 export async function listTaskHistory(db: SQLiteDatabase, taskId: string): Promise<TaskHistoryEvent[]> {
   const rows = await db.getAllAsync<HistoryRow>(
     `SELECT id, task_id, event_type, from_date, to_date, timestamp
