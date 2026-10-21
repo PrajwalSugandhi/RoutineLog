@@ -5,15 +5,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DailyProgress } from '@/components/daily-progress';
 import { DateNavigator } from '@/components/date-navigator';
 import { EmptyState } from '@/components/empty-state';
+import { MonthCalendar } from '@/components/month-calendar';
 import { TaskFormModal } from '@/components/task-form-modal';
 import { TaskList } from '@/components/task-list';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ViewSwitcher } from '@/components/view-switcher';
+import { WeekStrip } from '@/components/week-strip';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useDayTasks } from '@/hooks/use-day-tasks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Task, TaskDraft } from '@/types/task';
-import { addDays, todayKey } from '@/utils/date';
+import { shiftVisibleDate, visibleRange, type CalendarView } from '@/utils/calendar';
+import { formatDayHeading, todayKey } from '@/utils/date';
+import { indexTasksByDate, summarizeDay } from '@/utils/task-stats';
 
 type EditorSession = { mode: 'create'; date: string } | { mode: 'edit'; task: Task };
 
@@ -21,9 +26,17 @@ export function TodayScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState(() => todayKey());
+  const [view, setView] = useState<CalendarView>('day');
   const [editor, setEditor] = useState<EditorSession | null>(null);
-  const { tasks, summary, loading, error, refresh, create, update, complete, reopen, remove } =
-    useDayTasks(selectedDate, selectedDate);
+  const range = visibleRange(view, selectedDate);
+  const { tasks, loading, error, refresh, create, update, complete, reopen, remove } = useDayTasks(
+    range.start,
+    range.end,
+  );
+  const tasksByDate = indexTasksByDate(tasks);
+  const dayTasks = tasksByDate.get(selectedDate) ?? [];
+  const summary = summarizeDay(dayTasks);
+  const selectedHeading = formatDayHeading(selectedDate);
 
   const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
   const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
@@ -68,10 +81,23 @@ export function TodayScreen() {
       <View style={[styles.body, { paddingTop: topSpace + Spacing.two }]}>
         <DateNavigator
           dateKey={selectedDate}
-          onPrevious={() => setSelectedDate((date) => addDays(date, -1))}
-          onNext={() => setSelectedDate((date) => addDays(date, 1))}
+          view={view}
+          onPrevious={() => setSelectedDate((date) => shiftVisibleDate(view, date, -1))}
+          onNext={() => setSelectedDate((date) => shiftVisibleDate(view, date, 1))}
           onToday={() => setSelectedDate(todayKey())}
         />
+        <ViewSwitcher value={view} onChange={setView} />
+        {view === 'week' ? (
+          <WeekStrip selectedDate={selectedDate} tasksByDate={tasksByDate} onSelectDate={setSelectedDate} />
+        ) : null}
+        {view === 'month' ? (
+          <MonthCalendar selectedDate={selectedDate} tasksByDate={tasksByDate} onSelectDate={setSelectedDate} />
+        ) : null}
+        {view === 'day' ? null : (
+          <ThemedText type="smallBold">
+            {selectedHeading.title} · {selectedHeading.detail}
+          </ThemedText>
+        )}
         {loading ? (
           <ThemedText type="small" themeColor="textSecondary">
             Loading tasks...
@@ -79,7 +105,7 @@ export function TodayScreen() {
         ) : (
           <DailyProgress summary={summary} />
         )}
-        {error && tasks.length > 0 ? (
+        {error && dayTasks.length > 0 ? (
           <View style={styles.errorRow}>
             <ThemedText type="small" style={{ color: theme.danger, flex: 1 }}>
               {error}
@@ -89,11 +115,11 @@ export function TodayScreen() {
             </Pressable>
           </View>
         ) : null}
-        {loading && tasks.length === 0 ? (
+        {loading && dayTasks.length === 0 ? (
           <View style={styles.loading}>
             <ActivityIndicator color={theme.accent} />
           </View>
-        ) : error && tasks.length === 0 ? (
+        ) : error && dayTasks.length === 0 ? (
           <View style={styles.loading}>
             <EmptyState
               title="Could not load tasks"
@@ -104,7 +130,7 @@ export function TodayScreen() {
           </View>
         ) : (
           <TaskList
-            tasks={tasks}
+            tasks={dayTasks}
             bottomInset={bottomSpace}
             onToggle={handleToggle}
             onPress={(task) => setEditor({ mode: 'edit', task })}

@@ -3,18 +3,37 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatMonthHeading, formatWeekHeading, type CalendarView } from '@/utils/calendar';
 import { formatDayHeading, todayKey } from '@/utils/date';
 
 type DateNavigatorProps = {
   dateKey: string;
+  view: CalendarView;
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
 };
 
-export function DateNavigator({ dateKey, onPrevious, onNext, onToday }: DateNavigatorProps) {
+const PREVIOUS_LABEL: Record<CalendarView, string> = {
+  day: 'Previous day',
+  week: 'Previous week',
+  month: 'Previous month',
+};
+
+const NEXT_LABEL: Record<CalendarView, string> = {
+  day: 'Next day',
+  week: 'Next week',
+  month: 'Next month',
+};
+
+export function DateNavigator({ dateKey, view, onPrevious, onNext, onToday }: DateNavigatorProps) {
   const theme = useTheme();
-  const heading = formatDayHeading(dateKey);
+  const heading =
+    view === 'month'
+      ? formatMonthHeading(dateKey)
+      : view === 'week'
+        ? formatWeekHeading(dateKey)
+        : formatDayHeading(dateKey);
   const isToday = dateKey === todayKey();
 
   return (
@@ -25,13 +44,18 @@ export function DateNavigator({ dateKey, onPrevious, onNext, onToday }: DateNavi
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Previous day"
+          accessibilityLabel={PREVIOUS_LABEL[view]}
           onPress={onPrevious}
           style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}>
           <ThemedText style={styles.chevron}>‹</ThemedText>
         </Pressable>
         <View style={styles.heading}>
-          <ThemedText accessibilityRole="header" style={styles.title}>
+          <ThemedText
+            accessibilityRole="header"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            style={styles.title}>
             {heading.title}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -40,7 +64,7 @@ export function DateNavigator({ dateKey, onPrevious, onNext, onToday }: DateNavi
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Next day"
+          accessibilityLabel={NEXT_LABEL[view]}
           onPress={onNext}
           style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}>
           <ThemedText style={styles.chevron}>›</ThemedText>
