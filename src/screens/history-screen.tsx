@@ -70,6 +70,7 @@ export function HistoryScreen() {
         <DateNavigator
           dateKey={selectedDate}
           view="day"
+          showBrand={false}
           onPrevious={() => setSelectedDate((date) => addDays(date, -1))}
           onNext={() => setSelectedDate((date) => addDays(date, 1))}
           onToday={() => setSelectedDate(todayKey())}
