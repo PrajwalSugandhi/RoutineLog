@@ -35,14 +35,31 @@ Android is the target platform. The project can also open in Expo Go on iOS, and
 
 ## Run it
 
-Requirements: Node.js, npm, and either an Android emulator or the Expo Go app.
+Requirements: Node.js, Yarn 1.22 (`yarn.lock` is the lockfile), and either an Android emulator or the Expo Go app.
 
 ```bash
-npm install
-npx expo start --android
+yarn install
+yarn expo start --android
 ```
 
-`npm start` opens the Expo dev server. From there you can press `a` for Android.
+`yarn start` opens the Expo dev server. From there you can press `a` for Android.
+
+## Android APK
+
+A phone can install DayFlow without Expo Go. The APK is a release build, so the app includes its JavaScript and does not need the computer to stay running. `android/` is generated and not committed. The application id is `com.dayflow.app`.
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+yarn install
+yarn expo prebuild --platform android --no-install
+cd android
+./gradlew assembleRelease
+mkdir -p ../dist
+cp app/build/outputs/apk/release/app-release.apk ../dist/dayflow.apk
+```
+
+The file to copy to the phone is `dist/dayflow.apk`. With the phone connected, `adb install -r dist/dayflow.apk` installs it. The APK is signed with the debug keystore created by prebuild, which is enough to install it and is not a Play Store upload key. The same steps, and the commands for Expo Go, a debug run, and a Play bundle, are in [docs/README-DEVELOPER.md](docs/README-DEVELOPER.md).
 
 More detail:
 
@@ -52,7 +69,7 @@ More detail:
 ## How the app is organized
 
 ```text
-src/app/            screens and navigation (Today, History)
+src/app/            screens and navigation (Today, Habits, History)
 src/screens/        screen logic
 src/components/     task rows, calendars, review, forms
 src/hooks/          load and refresh tasks, reviews, and history
@@ -67,11 +84,13 @@ Screens stay thin. SQL stays in repositories. A task’s scheduled date is a loc
 
 ## Data
 
-One database file, `dayflow.db`, holds three tables:
+One database file, `dayflow.db`, holds five tables:
 
-- `tasks` — the current plan for each task
+- `tasks` — the current plan for each one-off task
 - `task_history` — created, completed, reopened, rescheduled, and deleted events
 - `day_reviews` — whether that day’s review is unfinished or finished
+- `recurring_tasks` — an everyday habit, either yes/no or a number
+- `recurring_logs` — the value logged for one habit on one calendar day
 
 Deleting a task archives it. The row and its history remain, and the task disappears from the calendar.
 
@@ -83,11 +102,12 @@ Included now:
 - Day, week, and month calendars
 - End-of-day review with an explicit choice for every open task
 - History and simple week rates based on events, not only the task’s current date
+- Everyday habits: a yes/no tick or a daily number, with a date-range total
 
 Not included yet:
 
 - Reminders or notifications
-- Recurring tasks
+- Habits that repeat only on chosen weekdays, or every week or month
 - Accounts, sync, or a backend
 - A settings screen
 

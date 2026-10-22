@@ -9,11 +9,13 @@ Nothing moves itself to the next day. A task stays on the date you gave it until
 On a computer, in the project folder:
 
 ```bash
-npm install
-npx expo start --android
+yarn install
+yarn expo start --android
 ```
 
-That starts the app on an Android emulator. You can also install Expo Go on a phone, run `npx expo start`, and scan the QR code. The phone and the computer need to be on the same network.
+That starts the app on an Android emulator. You can also install Expo Go on a phone, run `yarn expo start`, and scan the QR code. The phone and the computer need to be on the same network.
+
+To install DayFlow without Expo Go, use the APK described in the developer guide. Copy `dist/dayflow.apk` to the phone and open it, or with the phone connected run `adb install -r dist/dayflow.apk`. That install does not need the computer to stay on. Uninstalling it deletes the tasks saved in that copy.
 
 The first screen is **Today**. The other tabs are **Habits** and **History**.
 
@@ -124,7 +126,7 @@ The summary counts:
 
 ## History
 
-History is the second tab. The numbers at the top are about the real current week:
+History is the third tab. The numbers at the top are about the real current week:
 
 - **Checked off today** — tasks you marked done today, by the clock on this phone.
 - **Checked off this week** — the same, for Sunday through Saturday of this week.

@@ -21,23 +21,58 @@ The display name, npm package name, Expo slug, and URL scheme are DayFlow (`dayf
 
 ## Commands
 
+Yarn 1 is the package manager. `yarn.lock` is the lockfile. `package-lock.json` is gitignored and should not be added back.
+
 ```bash
-npm install
-npx expo start --android
-npx tsc --noEmit
+yarn install
+yarn expo start --android
+yarn tsc --noEmit
 ```
 
-`npm run android` is `expo start --android`.
+`yarn start` is `expo start`. After `expo prebuild`, `yarn android` is `expo run:android` and `yarn ios` is `expo run:ios`. Those native scripts compile a debug app and expect a dev server. `yarn expo start --android` is the Expo Go path.
 
-Install native modules with `npx expo install <package>` so the version matches SDK 57. Do not bump Expo or React Native unless you have checked the SDK 57 docs.
+Install native modules with `yarn expo install <package>` so the version matches SDK 57. Do not use `yarn add` for an Expo package, and do not bump Expo or React Native unless you have checked the SDK 57 docs.
 
-`npm run reset-project` is the original Expo template script. It moves the current app aside and creates a blank one. Do not run it.
+`yarn reset-project` is the original Expo template script. It moves the current app aside and creates a blank one. Do not run it.
 
-`npm run lint` / `npx expo lint` is not usable on Node 20. `eslint-plugin-expo` asks for Node 22, 24, or 26. This environment is Node 20.19.4, so lint was left uninstalled. Typecheck is the check that runs today.
+`yarn lint` / `yarn expo lint` is not usable on Node 20. `eslint-plugin-expo` asks for Node 22, 24, or 26. This environment is Node 20.19.4, so lint was left uninstalled. Typecheck is the check that runs today.
 
 There is no Jest suite. Pure date, calendar, review, and history rules can be executed by compiling `src/utils` with `tsc` and asserting in Node. The device checks below were done on a Pixel 7 emulator with Expo Go 57.
 
-`ios/` and `android/` are not in the repo. Native config belongs in `app.json` and config plugins. `android.softwareKeyboardLayoutMode` is `resize` so form footers stay above the keyboard.
+`ios/` and `android/` are not in the repo. Native config belongs in `app.json` and config plugins. `android.softwareKeyboardLayoutMode` is `resize` so form footers stay above the keyboard. The Android application id is `com.dayflow.app`.
+
+## Android APK
+
+The installable file is a release APK. A debug APK would look for the Expo dev server, so it is not the file to copy to a phone. `assembleRelease` bundles the JavaScript into the APK. The generated `android/` project signs that release build with the debug keystore (`android/app/debug.keystore`, store password `android`, alias `androiddebugkey`). That signature is enough to install the APK. It is not a Play Store upload key. A rebuild on another computer creates a different debug keystore, and Android will refuse to upgrade an install signed by the other key. Uninstall the old copy first.
+
+`android/` and `dist/` are gitignored. Generate them when you need a new APK. JDK 17 and Android SDK 36 are required. Android Studio’s bundled JDK is enough:
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+yarn install
+yarn expo prebuild --platform android --no-install
+cd android
+./gradlew assembleRelease
+mkdir -p ../dist
+cp app/build/outputs/apk/release/app-release.apk ../dist/dayflow.apk
+```
+
+`dist/dayflow.apk` is the file to copy or download. Install it with the phone connected:
+
+```bash
+adb install -r dist/dayflow.apk
+```
+
+Related commands:
+
+| Command | Result |
+| --- | --- |
+| `yarn expo start --android` | Expo Go, or a dev client, against the dev server |
+| `yarn android` | `expo run:android`, a debug native build that still needs the dev server |
+| `yarn expo prebuild --platform android --clean` | Regenerate `android/` from `app.json` |
+| `cd android && ./gradlew assembleRelease` | Standalone APK at `android/app/build/outputs/apk/release/app-release.apk` |
+| `cd android && ./gradlew bundleRelease` | An `.aab` for Play. That path needs an upload keystore. See the Expo local production guide. |
 
 ## Layout
 
@@ -167,12 +202,12 @@ These were left out on purpose. The data model can take them without a rewrite i
 2. **Weekly or monthly habits.** Everyday habits already exist as one `recurring_tasks` row plus `recurring_logs`. Do not add another schedule by copying a row inside `rescheduleTask`.
 3. **Sync.** The device database is the source of truth. A backend should ship `tasks`, `task_history`, `day_reviews`, `recurring_tasks`, and `recurring_logs`, including soft-deleted rows, or the other device will mis-count past days.
 4. **Archive browser.** Deleted tasks are already retained. They are filtered out of active queries.
-5. **Lint.** Use Node 22 or newer, then `npx expo lint`, and commit the ESLint config Expo generates.
+5. **Lint.** Use Node 22 or newer, then `yarn expo lint`, and commit the ESLint config Expo generates.
 
 ## Checks worth repeating
 
 ```bash
-npx tsc --noEmit
+yarn tsc --noEmit
 ```
 
 On a device or emulator, the regression that matters:
@@ -184,4 +219,4 @@ On a device or emulator, the regression that matters:
 5. Force-stop the app and reopen it. The moved task is still on tomorrow.
 6. Delete it, cancel once, then confirm. Cancel keeps it. Confirm removes it from the calendar.
 
-Do not treat `npm run reset-project` as a test.
+Do not treat `yarn reset-project` as a test.
