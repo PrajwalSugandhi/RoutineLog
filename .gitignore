@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Yarn is the package manager. Do not commit an npm lockfile.
+package-lock.json
+
 # Expo
 .expo/
 dist/
