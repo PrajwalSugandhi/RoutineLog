@@ -41,6 +41,33 @@ CREATE TABLE IF NOT EXISTS task_history (
 CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON task_history (task_id);
 `;
 
+const RECURRING_SCHEMA = `
+CREATE TABLE IF NOT EXISTS recurring_tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  value_type TEXT NOT NULL CHECK (value_type IN ('boolean', 'numeric')),
+  start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_tasks_start_date ON recurring_tasks (start_date);
+
+CREATE TABLE IF NOT EXISTS recurring_logs (
+  id TEXT PRIMARY KEY NOT NULL,
+  recurring_task_id TEXT NOT NULL,
+  log_date TEXT NOT NULL CHECK (log_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  value INTEGER NOT NULL CHECK (value >= 0),
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (recurring_task_id) REFERENCES recurring_tasks (id),
+  UNIQUE (recurring_task_id, log_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_logs_date ON recurring_logs (log_date);
+`;
+
 const REVIEW_SCHEMA = `
 CREATE TABLE IF NOT EXISTS day_reviews (
   review_date TEXT PRIMARY KEY NOT NULL CHECK (
@@ -62,6 +89,9 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   if (currentVersion < DATABASE_VERSION) {
     if (currentVersion === 0) {
       await db.execAsync(INITIAL_SCHEMA);
+    }
+    if (currentVersion < 3) {
+      await db.execAsync(RECURRING_SCHEMA);
     }
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   }

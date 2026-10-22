@@ -15,7 +15,7 @@ npx expo start --android
 
 That starts the app on an Android emulator. You can also install Expo Go on a phone, run `npx expo start`, and scan the QR code. The phone and the computer need to be on the same network.
 
-The first screen is **Today**. The other tab is **History**.
+The first screen is **Today**. The other tabs are **Habits** and **History**.
 
 ## Today
 
@@ -56,6 +56,35 @@ A finished task stays on that day, crossed out, so you can still see that it was
 
 Priority is shown as Low, Medium, or High. A time, if you set one, is the local time of day.
 
+Under the one-off list, **Every day** shows habits that have already started by the selected date. That block does not change the “2 of 5 complete” line.
+
+- A **yes/no** habit, such as the gym, has a circle. Tick it on a day you went. Leave it clear on a day you did not.
+- A **number** habit, such as practice questions, shows the count saved for that day. You type the number in the review, or on the habit’s own screen. Blank counts as zero.
+
+## Habits
+
+Habits is the second tab. It is for something you do every day, separate from a task that belongs to one date.
+
+Tap **+** and choose:
+
+- **Yes/no** — tick the days you did it.
+- **Number** — record how many you did on each day.
+
+Title is required. Notes are optional. **Starts** is the first day that counts. The type cannot be changed later. The habit then repeats on every calendar day from that start date. There is no weekly or monthly repeat.
+
+Each row shows today. A yes/no row can be ticked there. A number row shows today’s count. Tap the row to open the habit.
+
+The habit screen is where you change the title, notes, or start date, and where you see a range:
+
+- Set **From** and **To**.
+- Yes/no shows how many days you went and how many you did not.
+- Number shows the total for the range.
+- Each day in the range is listed, and you can correct it there.
+
+Days before the start date are ignored. Days after today are ignored, so a future day is not counted as missed and is not added into the total. A day you never ticked counts as not visited. A number you never entered counts as zero.
+
+Delete asks you to confirm, then hides the habit. The saved days stay on the phone.
+
 ## Review this day
 
 **Review this day** sits under the Day / Week / Month switch. It always reviews the date you currently have selected, which may be today or an earlier day.
@@ -71,6 +100,8 @@ The status under the button means:
 | New tasks are still open | You had finished, then added more tasks afterward. |
 
 Opening the review does not finish it, and it does not complete or move any task.
+
+If you have everyday habits, they appear under **Every day** before the one-off tasks. Tick a yes/no habit, or type a number. Leaving a number blank stores nothing and counts as zero. Those entries do not decide whether the review is finished.
 
 For each task still open you get four choices:
 
@@ -113,14 +144,14 @@ The review line tells you whether that date’s review was started or finished.
 
 ## What is saved
 
-Tasks, completion, dates, postpone counts, review status, and history are stored on the device. Force-stopping or restarting the phone does not wipe them. Uninstalling the app does.
+Tasks, completion, dates, postpone counts, review status, history, everyday habits, and the day-by-day log for each habit are stored on the device. Force-stopping or restarting the phone does not wipe them. Uninstalling the app does.
 
 There is no account. There is no copy in the cloud. A second phone will not have these tasks.
 
 ## What DayFlow will not do yet
 
 - It will not remind you to review the day.
-- It will not repeat a task every week or month.
+- It will not repeat a habit on chosen weekdays, or every week or month. An everyday habit repeats every calendar day from its start date.
 - It will not sync to another device.
 - It will not carry every unfinished task forward at midnight. Only a choice in the review, or an edit to the date, moves a task.
 

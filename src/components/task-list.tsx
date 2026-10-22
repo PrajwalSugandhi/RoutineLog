@@ -1,3 +1,4 @@
+import { type ReactElement } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
 
 import { EmptyState } from '@/components/empty-state';
@@ -12,9 +13,10 @@ type TaskListProps = {
   onPress: (task: Task) => void;
   onDelete: (task: Task) => void;
   onAdd: () => void;
+  footer?: ReactElement | null;
 };
 
-export function TaskList({ tasks, bottomInset, onToggle, onPress, onDelete, onAdd }: TaskListProps) {
+export function TaskList({ tasks, bottomInset, onToggle, onPress, onDelete, onAdd, footer }: TaskListProps) {
   return (
     <FlatList
       data={tasks}
@@ -25,6 +27,7 @@ export function TaskList({ tasks, bottomInset, onToggle, onPress, onDelete, onAd
         { paddingBottom: bottomInset + 88 },
         tasks.length === 0 && styles.emptyContent,
       ]}
+      ListFooterComponent={footer ?? null}
       ListEmptyComponent={
         <EmptyState
           title="Nothing planned"

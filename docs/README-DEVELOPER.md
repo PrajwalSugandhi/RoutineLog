@@ -44,6 +44,7 @@ There is no Jest suite. Pure date, calendar, review, and history rules can be ex
 ```text
 src/app/_layout.tsx          providers: theme, SQLite, splash
 src/app/index.tsx            re-exports TodayScreen
+src/app/habits.tsx           re-exports HabitsScreen
 src/app/history.tsx          re-exports HistoryScreen
 src/screens                  screen state and composition
 src/components               presentational UI
@@ -55,7 +56,7 @@ src/utils                    pure functions, no SQLite
 src/types/task.ts            Task and TaskDraft
 ```
 
-Navigation is Expo Router native tabs in `src/components/app-tabs.tsx`. The web tab bar is `app-tabs.web.tsx`. Trigger `name` must match the route file (`index`, `history`).
+Navigation is Expo Router native tabs in `src/components/app-tabs.tsx`. The web tab bar is `app-tabs.web.tsx`. Trigger `name` must match the route file (`index`, `habits`, `history`).
 
 `src/components/ui/collapsible.tsx`, `animated-icon.tsx`, `hint-row.tsx`, and `web-badge.tsx` are leftovers from the Expo starter. DayFlow does not depend on them for its flows. The splash overlay in the root layout is still the starter animation.
 
@@ -89,7 +90,7 @@ These questions use different data:
 | What was checked off today? | the local calendar day of the latest uncleared `completed` timestamp |
 | What left this day unfinished? | a `rescheduled` event with `from_date` equal to that day, task not currently scheduled there, and not completed for that day |
 
-`buildDayInspection` in `src/utils/history.ts` is the function History must keep using. A day with 1 completion and 1 move is `1 of 2`, not `1 of 1` and not an empty day.
+`buildDayInspection` in `src/utils/history.ts` is the function History must keep using. A day with 1 completion and 1 move is `1 of 2`, not `1 of 1` and not an empty day. Everyday habit logs are not part of that inspection, and they do not change the selected day’s “2 of 5 complete” line.
 
 Completed tasks stay on their scheduled date. Completion writes `completed_at` and a history row whose `from_date` is the scheduled date at that moment. It does not change `scheduled_date`.
 
@@ -109,13 +110,25 @@ Keep here does not write a task or a review decision. It only marks the card in 
 
 `deleteTask` sets `deleted_at` and writes a `deleted` history event. Queries that feed the UI filter `deleted_at IS NULL`. History events for archived tasks are excluded by the join in `listActivityEvents`. The row is not removed, so a future archive screen can still read it.
 
+## Everyday habits are one row
+
+A habit is not a copy of `tasks` and it is not created inside `rescheduleTask`. `recurring_tasks` holds the habit: `value_type` is `boolean` or `numeric`, chosen at insert and never updated. `recurring_logs` holds one integer per `(recurring_task_id, log_date)`.
+
+- Boolean stores `1` for a tick and deletes the row when cleared. A missing row counts as not visited.
+- Numeric stores the integer, including `0` when that zero was saved. A missing row counts as 0. Blank input deletes the row.
+- A log date has to be on or after `start_date`.
+- Range counts use `clipRecurringWindow` in `src/utils/recurring.ts`: from `max(start_date, from)` through `min(to, today)`. Future days are not missed and are not added into a numeric total.
+- Soft delete sets `deleted_at`. Active queries filter that column. Logs stay in the database.
+
+The selected day can tick a boolean habit. The review can tick a boolean habit or save a number. Neither write changes `day_reviews.status`.
+
 ## Writes and the database
 
 `src/database/transaction.ts` runs all writes and the serialized reads through one promise queue, then `db.withTransactionAsync` for multi-statement changes (insert task + history, update date + history, complete + history). Do not call `runInTransaction` from inside another queued function or the queue will deadlock. Repository functions assume they are already inside that queue. Service functions are the ones that enqueue.
 
-`SQLiteProvider` in `src/database/database-gate.tsx` opens `dayflow.db` and runs `migrateDatabase` before children render. `user_version` is `2` (`DATABASE_VERSION`).
+`SQLiteProvider` in `src/database/database-gate.tsx` opens `dayflow.db` and runs `migrateDatabase` before children render. `user_version` is `3` (`DATABASE_VERSION`).
 
-Version 0 creates `tasks` and `task_history`, then sets the version. Every launch also runs `CREATE TABLE IF NOT EXISTS day_reviews`. That second statement is unconditional on purpose: an earlier build set `user_version` to 2 before the review table existed, and a version check alone would skip it forever.
+Version 0 creates `tasks` and `task_history`. Version 3 creates `recurring_tasks` and `recurring_logs` whenever `user_version` is still below 3, including a database that was already at version 2. A version bump that only set `user_version` would skip those tables on an existing install. Every launch also runs `CREATE TABLE IF NOT EXISTS day_reviews`. That statement is unconditional on purpose: an earlier build set `user_version` to 2 before the review table existed, and a version check alone would skip it forever.
 
 Do not put sample tasks in `migrateDatabase`.
 
@@ -131,6 +144,7 @@ Foreign keys are enabled per connection after migrate. History rows reference `t
 | Day/week/month grid | `src/utils/calendar.ts`, `month-calendar.tsx`, `week-strip.tsx` |
 | What History counts | `src/utils/history.ts` |
 | Selected-day UI | `src/screens/today-screen.tsx` |
+| Everyday habits | `src/services/recurring-service.ts`, `src/utils/recurring.ts` |
 | A new screen | add `src/app/<name>.tsx`, a screen component, and a `NativeTabs.Trigger` whose `name` matches the file |
 
 `useDayTasks(start, end)` loads every visible calendar cell’s tasks in one range query. Mutations call back into the task service and then refresh that range. `useHistory` reloads when the History tab gains focus, so a move made on Today shows up after you switch tabs.
@@ -150,8 +164,8 @@ Light and dark colors are the `Colors` map in `src/constants/theme.ts`. `useThem
 These were left out on purpose. The data model can take them without a rewrite if the rules above stay intact.
 
 1. **Review reminder.** A local notification should only open the review screen. It must not complete or reschedule tasks. `expo-notifications` has to be checked against SDK 57 before it is added. There is no settings screen yet.
-2. **Recurring tasks.** Do not implement them by copying a row inside `rescheduleTask`. A recurrence is a new task with its own id, or a generated instance, and needs its own history.
-3. **Sync.** The device database is the source of truth. A backend should ship `tasks`, `task_history`, and `day_reviews`, including soft-deleted rows, or the other device will mis-count past days.
+2. **Weekly or monthly habits.** Everyday habits already exist as one `recurring_tasks` row plus `recurring_logs`. Do not add another schedule by copying a row inside `rescheduleTask`.
+3. **Sync.** The device database is the source of truth. A backend should ship `tasks`, `task_history`, `day_reviews`, `recurring_tasks`, and `recurring_logs`, including soft-deleted rows, or the other device will mis-count past days.
 4. **Archive browser.** Deleted tasks are already retained. They are filtered out of active queries.
 5. **Lint.** Use Node 22 or newer, then `npx expo lint`, and commit the ESLint config Expo generates.
 
