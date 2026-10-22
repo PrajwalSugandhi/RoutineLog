@@ -1,6 +1,6 @@
-# DayFlow user guide
+# RoutineLog user guide
 
-DayFlow helps you plan a single day, see what you finished, and decide what to do with anything left over. It is a calendar and a to-do list together. Closing the app does not clear your tasks. They stay on this phone.
+RoutineLog helps you plan a single day, see what you finished, and decide what to do with anything left over. It is a calendar and a to-do list together. Closing the app does not clear your tasks. They stay on this phone.
 
 Nothing moves itself to the next day. A task stays on the date you gave it until you complete it, delete it, or choose a new date.
 
@@ -15,7 +15,7 @@ yarn expo start --android
 
 That starts the app on an Android emulator. You can also install Expo Go on a phone, run `yarn expo start`, and scan the QR code. The phone and the computer need to be on the same network.
 
-To install DayFlow without Expo Go, use the APK described in the developer guide. Copy `dist/dayflow.apk` to the phone and open it, or with the phone connected run `adb install -r dist/dayflow.apk`. That install does not need the computer to stay on. Uninstalling it deletes the tasks saved in that copy.
+To install RoutineLog without Expo Go, use the APK described in the developer guide. Copy `dist/routinelog.apk` to the phone and open it, or with the phone connected run `adb install -r dist/routinelog.apk`. That install does not need the computer to stay on. Uninstalling it deletes the tasks saved in that copy.
 
 The first screen is **Today**. The other tabs are **Habits** and **History**.
 
@@ -46,7 +46,7 @@ Tap the **+** button, or **Add task** when the day is empty.
 
 The task is given its own id. Renaming it does not create a second task.
 
-If you save a task onto a different day from the one you are viewing, DayFlow switches to that day so you can see it.
+If you save a task onto a different day from the one you are viewing, RoutineLog switches to that day so you can see it.
 
 ### Work through the list
 
@@ -122,7 +122,7 @@ The summary counts:
 - Moved to tomorrow
 - Moved to another date
 
-**Finish review** saves that outcome. If anything is still open, DayFlow asks you to confirm and tells you how many tasks will stay. You can come back later. The same tasks and the same status are shown again.
+**Finish review** saves that outcome. If anything is still open, RoutineLog asks you to confirm and tells you how many tasks will stay. You can come back later. The same tasks and the same status are shown again.
 
 ## History
 
@@ -150,7 +150,7 @@ Tasks, completion, dates, postpone counts, review status, history, everyday habi
 
 There is no account. There is no copy in the cloud. A second phone will not have these tasks.
 
-## What DayFlow will not do yet
+## What RoutineLog will not do yet
 
 - It will not remind you to review the day.
 - It will not repeat a habit on chosen weekdays, or every week or month. An everyday habit repeats every calendar day from its start date.

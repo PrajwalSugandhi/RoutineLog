@@ -48,7 +48,7 @@ export function DateNavigator({
     <View style={styles.container}>
       {showBrand ? (
         <ThemedText type="small" themeColor="textSecondary">
-          DayFlow
+          RoutineLog
         </ThemedText>
       ) : null}
       <View style={styles.heading}>

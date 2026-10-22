@@ -1,6 +1,6 @@
-# DayFlow
+# RoutineLog
 
-DayFlow is an Android-first daily planner. It combines a to-do list with a calendar so unfinished work stays visible instead of disappearing at midnight.
+RoutineLog is an Android-first daily planner. It combines a to-do list with a calendar so unfinished work stays visible instead of disappearing at midnight.
 
 You plan a day, check tasks off as you finish them, and at the end of the day decide what happens to anything still open: mark it done, move it to tomorrow, move it to another date, or leave it where it is. Week and month views, plus a history screen, all read the same saved tasks.
 
@@ -8,7 +8,7 @@ The app works offline. Tasks, reviews, and history stay on the device in a local
 
 ## Who it is for
 
-DayFlow is a personal productivity app. It is meant for someone who wants to plan one day at a time, look back at what was finished or postponed, and carry unfinished work forward only when they choose to.
+RoutineLog is a personal productivity app. It is meant for someone who wants to plan one day at a time, look back at what was finished or postponed, and carry unfinished work forward only when they choose to.
 
 ## What you can do
 
@@ -46,7 +46,7 @@ yarn expo start --android
 
 ## Android APK
 
-A phone can install DayFlow without Expo Go. The APK is a release build, so the app includes its JavaScript and does not need the computer to stay running. `android/` is generated and not committed. The application id is `com.dayflow.app`.
+A phone can install RoutineLog without Expo Go. The APK is a release build, so the app includes its JavaScript and does not need the computer to stay running. `android/` is generated and not committed. The application id is `com.routinelog.app`.
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
@@ -56,10 +56,10 @@ yarn expo prebuild --platform android --no-install
 cd android
 ./gradlew assembleRelease
 mkdir -p ../dist
-cp app/build/outputs/apk/release/app-release.apk ../dist/dayflow.apk
+cp app/build/outputs/apk/release/app-release.apk ../dist/routinelog.apk
 ```
 
-The file to copy to the phone is `dist/dayflow.apk`. With the phone connected, `adb install -r dist/dayflow.apk` installs it. The APK is signed with the debug keystore created by prebuild, which is enough to install it and is not a Play Store upload key. The same steps, and the commands for Expo Go, a debug run, and a Play bundle, are in [docs/README-DEVELOPER.md](docs/README-DEVELOPER.md).
+The file to copy to the phone is `dist/routinelog.apk`. With the phone connected, `adb install -r dist/routinelog.apk` installs it. The APK is signed with the debug keystore created by prebuild, which is enough to install it and is not a Play Store upload key. The same steps, and the commands for Expo Go, a debug run, and a Play bundle, are in [docs/README-DEVELOPER.md](docs/README-DEVELOPER.md).
 
 More detail:
 
@@ -84,7 +84,7 @@ Screens stay thin. SQL stays in repositories. A task’s scheduled date is a loc
 
 ## Data
 
-One database file, `dayflow.db`, holds five tables:
+One database file, `routinelog.db`, holds five tables:
 
 - `tasks` — the current plan for each one-off task
 - `task_history` — created, completed, reopened, rescheduled, and deleted events

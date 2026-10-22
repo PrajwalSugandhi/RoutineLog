@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "DayFlow",
-    "slug": "dayflow",
+    "name": "RoutineLog",
+    "slug": "routinelog",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dayflow",
+    "scheme": "routinelog",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
-      "package": "com.dayflow.app",
+      "package": "com.routinelog.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

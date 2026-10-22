@@ -42,7 +42,7 @@ function DatabaseErrorScreen({ message, onRetry }: { message: string; onRetry: (
       <ThemedText type="subtitle">Could not open your tasks</ThemedText>
       <ThemedText themeColor="textSecondary">{message}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        Your existing tasks were not replaced. Close DayFlow and open it again if this continues.
+        Your existing tasks were not replaced. Close RoutineLog and open it again if this continues.
       </ThemedText>
       <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
         <ThemedText type="smallBold">Try again</ThemedText>

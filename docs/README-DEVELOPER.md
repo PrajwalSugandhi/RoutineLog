@@ -1,6 +1,6 @@
-# DayFlow developer guide
+# RoutineLog developer guide
 
-DayFlow is an Expo SDK 57 app. Android is the product target. Routes live in `src/app`. Business rules live outside those route files. SQLite is the only store.
+RoutineLog is an Expo SDK 57 app. Android is the product target. Routes live in `src/app`. Business rules live outside those route files. SQLite is the only store.
 
 Read this before changing task dates, history, or reviews. Those three are easy to corrupt if a calendar day is derived from a UTC timestamp, or if a statistic uses only `tasks.scheduled_date`.
 
@@ -17,7 +17,7 @@ Read this before changing task dates, history, or reviews. Those three are easy 
 
 `@expo/ui` supplies the community date/time picker (`@expo/ui/community/datetime-picker`). Do not add `@react-native-community/datetimepicker` unless you have a reason to leave Expo UI.
 
-The display name, npm package name, Expo slug, and URL scheme are DayFlow (`dayflow` in `package.json`, `app.json` slug, and `app.json` scheme).
+The display name, npm package name, Expo slug, and URL scheme are RoutineLog (`routinelog` in `package.json`, `app.json` slug, and `app.json` scheme).
 
 ## Commands
 
@@ -39,7 +39,7 @@ Install native modules with `yarn expo install <package>` so the version matches
 
 There is no Jest suite. Pure date, calendar, review, and history rules can be executed by compiling `src/utils` with `tsc` and asserting in Node. The device checks below were done on a Pixel 7 emulator with Expo Go 57.
 
-`ios/` and `android/` are not in the repo. Native config belongs in `app.json` and config plugins. `android.softwareKeyboardLayoutMode` is `resize` so form footers stay above the keyboard. The Android application id is `com.dayflow.app`.
+`ios/` and `android/` are not in the repo. Native config belongs in `app.json` and config plugins. `android.softwareKeyboardLayoutMode` is `resize` so form footers stay above the keyboard. The Android application id is `com.routinelog.app`.
 
 ## Android APK
 
@@ -55,13 +55,13 @@ yarn expo prebuild --platform android --no-install
 cd android
 ./gradlew assembleRelease
 mkdir -p ../dist
-cp app/build/outputs/apk/release/app-release.apk ../dist/dayflow.apk
+cp app/build/outputs/apk/release/app-release.apk ../dist/routinelog.apk
 ```
 
-`dist/dayflow.apk` is the file to copy or download. Install it with the phone connected:
+`dist/routinelog.apk` is the file to copy or download. Install it with the phone connected:
 
 ```bash
-adb install -r dist/dayflow.apk
+adb install -r dist/routinelog.apk
 ```
 
 Related commands:
@@ -93,7 +93,7 @@ src/types/task.ts            Task and TaskDraft
 
 Navigation is Expo Router native tabs in `src/components/app-tabs.tsx`. The web tab bar is `app-tabs.web.tsx`. Trigger `name` must match the route file (`index`, `habits`, `history`).
 
-`src/components/ui/collapsible.tsx`, `animated-icon.tsx`, `hint-row.tsx`, and `web-badge.tsx` are leftovers from the Expo starter. DayFlow does not depend on them for its flows. The splash overlay in the root layout is still the starter animation.
+`src/components/ui/collapsible.tsx`, `animated-icon.tsx`, `hint-row.tsx`, and `web-badge.tsx` are leftovers from the Expo starter. RoutineLog does not depend on them for its flows. The splash overlay in the root layout is still the starter animation.
 
 ## Rules that must stay true
 
@@ -161,7 +161,7 @@ The selected day can tick a boolean habit. The review can tick a boolean habit o
 
 `src/database/transaction.ts` runs all writes and the serialized reads through one promise queue, then `db.withTransactionAsync` for multi-statement changes (insert task + history, update date + history, complete + history). Do not call `runInTransaction` from inside another queued function or the queue will deadlock. Repository functions assume they are already inside that queue. Service functions are the ones that enqueue.
 
-`SQLiteProvider` in `src/database/database-gate.tsx` opens `dayflow.db` and runs `migrateDatabase` before children render. `user_version` is `3` (`DATABASE_VERSION`).
+`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. `user_version` is `3` (`DATABASE_VERSION`).
 
 Version 0 creates `tasks` and `task_history`. Version 3 creates `recurring_tasks` and `recurring_logs` whenever `user_version` is still below 3, including a database that was already at version 2. A version bump that only set `user_version` would skip those tables on an existing install. Every launch also runs `CREATE TABLE IF NOT EXISTS day_reviews`. That statement is unconditional on purpose: an earlier build set `user_version` to 2 before the review table existed, and a version check alone would skip it forever.
 
