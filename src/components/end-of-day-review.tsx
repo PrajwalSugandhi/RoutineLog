@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RecurringDaySection } from '@/components/recurring-day-section';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { RecurringDayEntry } from '@/types/recurring-task';
 import type { Task } from '@/types/task';
 import { addDays, formatDayHeading, isDateKey, parseDateKey, toDateKey } from '@/utils/date';
 import {
@@ -39,6 +41,8 @@ type EndOfDayReviewProps = {
   onComplete: (taskId: string) => Promise<void>;
   onReschedule: (taskId: string, dateKey: string) => Promise<void>;
   onFinish: () => Promise<void>;
+  recurringEntries: RecurringDayEntry[];
+  onSetRecurring: (taskId: string, value: number | null) => Promise<void>;
 };
 
 export function EndOfDayReview({
@@ -55,6 +59,8 @@ export function EndOfDayReview({
   onComplete,
   onReschedule,
   onFinish,
+  recurringEntries,
+  onSetRecurring,
 }: EndOfDayReviewProps) {
   const theme = useTheme();
   const heading = formatDayHeading(dateKey);
@@ -175,6 +181,15 @@ export function EndOfDayReview({
                 <SummaryLine label="Moved to another date" value={summary.movedToOther} />
               ) : null}
             </View>
+
+            <RecurringDaySection
+              entries={recurringEntries}
+              hint="Tick a yes/no day, or enter how many you did. A blank number counts as zero and does not change this review."
+              onToggleBoolean={(entry) =>
+                void run(() => onSetRecurring(entry.task.id, entry.value === 1 ? null : 1))
+              }
+              onCommitNumber={onSetRecurring}
+            />
 
             <View style={styles.section}>
               <ThemedText type="smallBold">Tasks to review</ThemedText>

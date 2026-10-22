@@ -7,6 +7,7 @@ import { DateNavigator } from '@/components/date-navigator';
 import { EmptyState } from '@/components/empty-state';
 import { EndOfDayReview } from '@/components/end-of-day-review';
 import { MonthCalendar } from '@/components/month-calendar';
+import { RecurringDaySection } from '@/components/recurring-day-section';
 import { TaskFormModal } from '@/components/task-form-modal';
 import { TaskList } from '@/components/task-list';
 import { ThemedText } from '@/components/themed-text';
@@ -16,7 +17,9 @@ import { WeekStrip } from '@/components/week-strip';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useDayReview } from '@/hooks/use-day-review';
 import { useDayTasks } from '@/hooks/use-day-tasks';
+import { useRecurringDay } from '@/hooks/use-recurring-day';
 import { useTheme } from '@/hooks/use-theme';
+import type { RecurringDayEntry } from '@/types/recurring-task';
 import type { Task, TaskDraft } from '@/types/task';
 import { shiftVisibleDate, visibleRange, type CalendarView } from '@/utils/calendar';
 import { formatDayHeading, todayKey } from '@/utils/date';
@@ -38,6 +41,7 @@ export function TodayScreen() {
     range.end,
   );
   const review = useDayReview(selectedDate, refresh);
+  const recurring = useRecurringDay(selectedDate);
   const tasksByDate = indexTasksByDate(tasks);
   const dayTasks = tasksByDate.get(selectedDate) ?? [];
   const summary = summarizeDay(dayTasks);
@@ -59,6 +63,17 @@ export function TodayScreen() {
   function handleToggle(task: Task) {
     const action = task.status === 'completed' ? reopen(task.id) : complete(task.id);
     action.catch((toggleError: unknown) => {
+      Alert.alert(
+        'Could not update this task',
+        toggleError instanceof Error ? toggleError.message : 'Please try again.',
+      );
+    });
+  }
+
+  function handleRecurringToggle(entry: RecurringDayEntry) {
+    if (entry.task.valueType !== 'boolean') return;
+    const next = entry.value === 1 ? null : 1;
+    recurring.setValue(entry.task.id, next).catch((toggleError: unknown) => {
       Alert.alert(
         'Could not update this task',
         toggleError instanceof Error ? toggleError.message : 'Please try again.',
@@ -173,6 +188,30 @@ export function TodayScreen() {
             onPress={(task) => setEditor({ mode: 'edit', task })}
             onDelete={handleDelete}
             onAdd={() => setEditor({ mode: 'create', date: selectedDate })}
+            footer={
+              recurring.entries.length > 0 || recurring.error ? (
+                <View style={styles.recurringFooter}>
+                  {recurring.error ? (
+                    <View style={styles.errorRow}>
+                      <ThemedText type="small" style={{ color: theme.danger, flex: 1 }}>
+                        {recurring.error}
+                      </ThemedText>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => void recurring.refresh()}
+                        style={styles.retry}>
+                        <ThemedText type="smallBold">Retry</ThemedText>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  <RecurringDaySection
+                    entries={recurring.entries}
+                    hint="Yes/no ticks here. Enter a number in the review, or open the task in Habits."
+                    onToggleBoolean={handleRecurringToggle}
+                  />
+                </View>
+              ) : null
+            }
           />
         )}
       </View>
@@ -208,6 +247,8 @@ export function TodayScreen() {
         onComplete={review.complete}
         onReschedule={review.reschedule}
         onFinish={review.finish}
+        recurringEntries={recurring.entries}
+        onSetRecurring={recurring.setValue}
       />
     </ThemedView>
   );
@@ -236,6 +277,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: Spacing.two,
+  },
+  recurringFooter: {
+    gap: Spacing.two,
   },
   reviewButton: {
     minHeight: 56,
