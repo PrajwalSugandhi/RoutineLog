@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { DATABASE_VERSION } from '@/database/constants';
 
-const INITIAL_SCHEMA = `
+const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
@@ -39,9 +39,19 @@ CREATE TABLE IF NOT EXISTS task_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON task_history (task_id);
-`;
 
-const RECURRING_SCHEMA = `
+CREATE TABLE IF NOT EXISTS day_reviews (
+  review_date TEXT PRIMARY KEY NOT NULL CHECK (
+    review_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+  ),
+  status TEXT NOT NULL CHECK (
+    status IN ('not_started', 'in_progress', 'completed_clear', 'completed_with_unresolved')
+  ),
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS recurring_tasks (
   id TEXT PRIMARY KEY NOT NULL,
   title TEXT NOT NULL,
@@ -68,34 +78,17 @@ CREATE TABLE IF NOT EXISTS recurring_logs (
 CREATE INDEX IF NOT EXISTS idx_recurring_logs_date ON recurring_logs (log_date);
 `;
 
-const REVIEW_SCHEMA = `
-CREATE TABLE IF NOT EXISTS day_reviews (
-  review_date TEXT PRIMARY KEY NOT NULL CHECK (
-    review_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-  ),
-  status TEXT NOT NULL CHECK (
-    status IN ('not_started', 'in_progress', 'completed_clear', 'completed_with_unresolved')
-  ),
-  started_at TEXT,
-  finished_at TEXT,
-  updated_at TEXT NOT NULL
-);
-`;
-
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = versionRow?.user_version ?? 0;
 
-  if (currentVersion < DATABASE_VERSION) {
-    if (currentVersion === 0) {
-      await db.execAsync(INITIAL_SCHEMA);
-    }
-    if (currentVersion < 3) {
-      await db.execAsync(RECURRING_SCHEMA);
-    }
-    await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  if (currentVersion !== DATABASE_VERSION) {
+    throw new Error(
+      `This database is version ${currentVersion}. RoutineLog only opens version ${DATABASE_VERSION} and does not upgrade older copies.`,
+    );
   }
 
-  await db.execAsync(REVIEW_SCHEMA);
+  await db.execAsync(SCHEMA);
+  await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   await db.execAsync('PRAGMA foreign_keys = ON;');
 }
