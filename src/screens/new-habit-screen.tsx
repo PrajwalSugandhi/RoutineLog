@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,50 +17,37 @@ import { DateKeyField } from '@/components/date-key-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { createRecurringTask } from '@/services/recurring-service';
 import { useTheme } from '@/hooks/use-theme';
-import type { RecurringTaskDraft, RecurringValueType } from '@/types/recurring-task';
+import type { RecurringValueType } from '@/types/recurring-task';
 import { todayKey } from '@/utils/date';
-
-type RecurringFormModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  onSubmit: (draft: RecurringTaskDraft) => Promise<void>;
-};
 
 const KINDS: { value: RecurringValueType; label: string }[] = [
   { value: 'boolean', label: 'Yes/no' },
   { value: 'numeric', label: 'Number' },
 ];
 
-export function RecurringFormModal({ visible, onClose, onSubmit }: RecurringFormModalProps) {
+export function NewHabitScreen() {
   const theme = useTheme();
+  const db = useSQLiteContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [valueType, setValueType] = useState<RecurringValueType>('boolean');
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(() => todayKey());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-    setTitle('');
-    setDescription('');
-    setValueType('boolean');
-    setStartDate(todayKey());
-    setSaving(false);
-    setFormError(null);
-  }, [visible]);
 
   async function handleSave() {
     setSaving(true);
     setFormError(null);
     try {
-      await onSubmit({
+      await createRecurringTask(db, {
         title,
         description,
         valueType,
         startDate,
       });
+      router.back();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not save this task.');
       setSaving(false);
@@ -66,13 +55,6 @@ export function RecurringFormModal({ visible, onClose, onSubmit }: RecurringForm
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={() => {
-        if (!saving) onClose();
-      }}>
       <ThemedView style={styles.screen}>
         <SafeAreaView style={styles.safeArea}>
           <KeyboardAvoidingView
@@ -81,13 +63,15 @@ export function RecurringFormModal({ visible, onClose, onSubmit }: RecurringForm
             <View style={styles.header}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Cancel"
+                accessibilityLabel="Back"
                 disabled={saving}
-                onPress={onClose}
+                onPress={() => router.back()}
                 style={styles.headerButton}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  Cancel
-                </ThemedText>
+                <MaterialIcons
+                  name="chevron-left"
+                  size={28}
+                  color={saving ? theme.textSecondary : theme.text}
+                />
               </Pressable>
               <ThemedText type="smallBold">New everyday task</ThemedText>
               <View style={styles.headerButton} />
@@ -188,7 +172,6 @@ export function RecurringFormModal({ visible, onClose, onSubmit }: RecurringForm
           </KeyboardAvoidingView>
         </SafeAreaView>
       </ThemedView>
-    </Modal>
   );
 }
 

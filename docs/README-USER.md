@@ -17,36 +17,47 @@ That starts the app on an Android emulator. You can also install Expo Go on a ph
 
 To install RoutineLog without Expo Go, use the APK described in the developer guide. Copy `dist/routinelog.apk` to the phone and open it, or with the phone connected run `adb install -r dist/routinelog.apk`. That install does not need the computer to stay on. Uninstalling it deletes the tasks saved in that copy.
 
-The first screen is **Today**. The other tabs are **Habits** and **History**.
+The first screen is **Home**. The other tabs are **Habits** and **History**.
 
-## Today
+## Home
 
-Today opens on the current date. The heading shows the day. Under it:
+Home opens on the current week. The heading is the month, for example **October**. The icon just left of the three dots switches between **Week** and **Month**. **Week** is the default.
 
-- **Previous** and **Next** move by one day, one week, or one month, depending on the view you are in.
-- **Today** appears when you are looking at any other date. It jumps back to the current day.
-- **Day**, **Week**, and **Month** change only the calendar. The tasks underneath are always the tasks for the date you selected.
+- **Week** is Sunday through Saturday under the month name. Tap a day to see it. Swipe the heading or the week left for the next week, and right for the previous week.
+- **Month** replaces the week with a month grid. Swipe it to change the month. Days from the previous or next month are faded but can still be tapped. A number on a date is how many tasks are planned there. An unfinished day and a fully finished day use different colors.
 
-**Day** is a simple list.
+The three-dot menu is for the day you have selected:
 
-**Week** is the seven days of that week, Sunday through Saturday. A number on a day is how many tasks are planned there. The color shows whether any of them are still open. Tap a day to see its tasks.
+- **Review this day** opens the review. The line under it is the review status.
+- **Go to today** appears when you are looking at any other date.
 
-**Month** is a normal month grid. Days from the previous or next month are faded but can still be tapped. A number on a date means that date has tasks. An unfinished day and a fully finished day use different colors.
+In Week view the date number and the dot under it mean different things.
 
-The progress line under the calendar is only for the selected day, for example “2 of 5 complete.”
+- A **blue circle** is the day you are looking at.
+- A **blue number**, with no circle, is today when you are looking at another day.
+- A **blue dot** means at least one task on that day is still open.
+- A **green dot** means every task on that day is done.
+- **No dot** means that day has no tasks. Habits do not add a dot.
+
+Under the calendar the selected day has two sections.
+
+- **Tasks** is the one-off list for that day. If the day has habits but no tasks, the section says nothing is planned.
+- **Habits** is every habit that has already started by that date. If the day has tasks but no habits, the section says so.
+
+If the day has neither tasks nor habits, those headings stay hidden and the screen says **You have a free day**.
 
 ### Add a task
 
-Tap the **+** button, or **Add task** when the day is empty.
+Tap the **+** button. That opens a new screen for the day you are viewing.
 
 - **Title** is required.
 - **Notes**, **priority**, and **time** are optional.
 - **Date** is the day the task is planned for. You can type `YYYY-MM-DD`, step to the previous or next day, or use **Choose date** on Android.
-- **Save task** writes it immediately.
+- **Save task** writes it immediately and returns to Home on that date.
 
 The task is given its own id. Renaming it does not create a second task.
 
-If you save a task onto a different day from the one you are viewing, RoutineLog switches to that day so you can see it.
+If you save a task onto a different day from the one you were viewing, Home opens on the saved day.
 
 ### Work through the list
 
@@ -58,40 +69,41 @@ A finished task stays on that day, crossed out, so you can still see that it was
 
 Priority is shown as Low, Medium, or High. A time, if you set one, is the local time of day.
 
-Under the one-off list, **Every day** shows habits that have already started by the selected date. That block does not change the “2 of 5 complete” line.
+The **Habits** section does not change the dots on the week strip.
 
 - A **yes/no** habit, such as the gym, has a circle. Tick it on a day you went. Leave it clear on a day you did not.
-- A **number** habit, such as practice questions, shows the count saved for that day. You type the number in the review, or on the habit’s own screen. Blank counts as zero.
+- A **number** habit, such as practice questions, has a field for that day. Type a whole number and leave the field, or open the review or the habit’s own screen and enter it there. A blank field stores nothing and counts as zero.
 
 ## Habits
 
 Habits is the second tab. It is for something you do every day, separate from a task that belongs to one date.
 
-Tap **+** and choose:
+Each row shows the habit’s type and today’s status. Tap the row to open the habit. Tap **+** to add one. The new-habit screen asks you to choose:
 
 - **Yes/no** — tick the days you did it.
 - **Number** — record how many you did on each day.
 
 Title is required. Notes are optional. **Starts** is the first day that counts. The type cannot be changed later. The habit then repeats on every calendar day from that start date. There is no weekly or monthly repeat.
 
-Each row shows today. A yes/no row can be ticked there. A number row shows today’s count. Tap the row to open the habit.
+The habit screen is a review of that habit, not the edit form.
 
-The habit screen is where you change the title, notes, or start date, and where you see a range:
+- **Today** logs the current day. Yes/no uses **+ Log** and **Done**. Number uses the count field.
+- **Insights** shows the current streak, the last 30 days, how many days were done, and how many days have been tracked.
+- **Habit HeatMap** shows the days since the start date.
+- **Notes** shows the saved notes.
+- **From** and **To** choose a range. Yes/no shows how many days you went and how many you did not. Number shows the total for the range. Each day in the range is listed, and you can correct it there.
 
-- Set **From** and **To**.
-- Yes/no shows how many days you went and how many you did not.
-- Number shows the total for the range.
-- Each day in the range is listed, and you can correct it there.
+The edit button on that screen is where you change the title, notes, or start date.
 
 Days before the start date are ignored. Days after today are ignored, so a future day is not counted as missed and is not added into the total. A day you never ticked counts as not visited. A number you never entered counts as zero.
 
-Delete asks you to confirm, then hides the habit. The saved days stay on the phone.
+Delete is on the edit screen. It asks you to confirm, then hides the habit. The saved days stay on the phone.
 
 ## Review this day
 
-**Review this day** sits under the Day / Week / Month switch. It always reviews the date you currently have selected, which may be today or an earlier day.
+**Review this day** is in the three-dot menu on Home. It always reviews the date you currently have selected, which may be today or an earlier day.
 
-The status under the button means:
+The status under that menu row means:
 
 | Status | Meaning |
 | --- | --- |
@@ -133,7 +145,15 @@ History is the third tab. The numbers at the top are about the real current week
 - **Still open** — every unfinished task, on any date.
 - **Postponed** — tasks you moved to a later day at least once.
 
-The week row follows the date you are inspecting. Each day shows the percent of that day’s plan that was finished for that day. A dash means nothing was planned. A number on the Today tab’s week strip is different: that one is a task count. Moving a task off a day does not make that day look empty, and it does not make the remaining tasks look like a perfect day.
+The week strip matches Home: weekday, date, and a dot. The arrows beside the week title move to the previous or next week. Tap a day to inspect it. The sections under the strip are unchanged.
+
+A dot here uses History’s count for that day, which includes tasks later moved away. It is not the same dot as on Home, which only looks at tasks still scheduled there.
+
+- A **blue dot** means at least one task is still waiting on that day.
+- A **green dot** means the day had a plan and nothing is still waiting there. A task you moved away unfinished does not keep the dot blue.
+- **No dot** means nothing was planned.
+
+The line under the selected date is still the full count, such as “1 of 2 finished.” Moving a task off a day does not make that line empty, and it does not make that line 100 percent.
 
 Under the selected date:
 

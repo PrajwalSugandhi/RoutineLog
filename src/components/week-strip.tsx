@@ -3,17 +3,35 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { Task } from '@/types/task';
 import { buildWeek, dayNumber } from '@/utils/calendar';
 import { formatDayHeading, parseDateKey, todayKey } from '@/utils/date';
 
-type WeekStripProps = {
-  selectedDate: string;
-  tasksByDate: Map<string, Task[]>;
-  onSelectDate: (dateKey: string) => void;
+export type WeekDaySummary = {
+  count: number;
+  pending: number;
+  label: string;
 };
 
-export function WeekStrip({ selectedDate, tasksByDate, onSelectDate }: WeekStripProps) {
+type WeekStripProps = {
+  selectedDate: string;
+  onSelectDate: (dateKey: string) => void;
+  summaryForDate: (dateKey: string) => WeekDaySummary;
+};
+
+export function summarizeTasksForWeek(
+  tasks: readonly { status: string }[],
+): WeekDaySummary {
+  const pending = tasks.filter((task) => task.status === 'pending').length;
+  const label =
+    tasks.length === 0
+      ? 'no tasks'
+      : pending === 0
+        ? `${tasks.length} complete`
+        : `${tasks.length} tasks, ${pending} unfinished`;
+  return { count: tasks.length, pending, label };
+}
+
+export function WeekStrip({ selectedDate, onSelectDate, summaryForDate }: WeekStripProps) {
   const theme = useTheme();
   const today = todayKey();
   const week = buildWeek(selectedDate);
@@ -21,52 +39,37 @@ export function WeekStrip({ selectedDate, tasksByDate, onSelectDate }: WeekStrip
   return (
     <View style={styles.row}>
       {week.map((dateKey) => {
-        const tasks = tasksByDate.get(dateKey) ?? [];
-        const pending = tasks.filter((task) => task.status === 'pending').length;
+        const summary = summaryForDate(dateKey);
         const selected = dateKey === selectedDate;
         const isToday = dateKey === today;
         const heading = formatDayHeading(dateKey);
-        const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'narrow' }).format(
+        const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
           parseDateKey(dateKey),
         );
-        const taskLabel =
-          tasks.length === 0
-            ? 'no tasks'
-            : pending === 0
-              ? `${tasks.length} complete`
-              : `${tasks.length} tasks, ${pending} unfinished`;
+        const numberColor = selected ? theme.onAccent : isToday ? theme.accent : theme.text;
+        const dotColor = summary.pending > 0 ? theme.accent : theme.success;
 
         return (
           <Pressable
             key={dateKey}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${heading.title}, ${heading.detail}, ${taskLabel}`}
+            accessibilityLabel={`${heading.title}, ${heading.detail}, ${summary.label}`}
             onPress={() => onSelectDate(dateKey)}
-            style={[
-              styles.day,
-              { backgroundColor: selected ? theme.accent : theme.backgroundElement },
-              isToday && !selected && { borderColor: theme.accent, borderWidth: 2 },
-            ]}>
+            style={styles.day}>
             <ThemedText
-              type="small"
-              style={{ color: selected ? theme.onAccent : theme.textSecondary }}>
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              style={[styles.weekday, { color: theme.textSecondary }]}>
               {weekday}
             </ThemedText>
-            <ThemedText type="smallBold" style={{ color: selected ? theme.onAccent : theme.text }}>
-              {dayNumber(dateKey)}
-            </ThemedText>
-            {tasks.length === 0 ? (
-              <View style={styles.countSpacer} />
-            ) : (
-              <ThemedText
-                style={[
-                  styles.count,
-                  { color: selected ? theme.onAccent : pending > 0 ? theme.medium : theme.success },
-                ]}>
-                {tasks.length}
+            <View style={[styles.date, selected && { backgroundColor: theme.accent }]}>
+              <ThemedText style={[styles.dateNumber, { color: numberColor }]}>
+                {dayNumber(dateKey)}
               </ThemedText>
-            )}
+            </View>
+            <View style={[styles.dot, summary.count > 0 && { backgroundColor: dotColor }]} />
           </Pressable>
         );
       })}
@@ -77,25 +80,35 @@ export function WeekStrip({ selectedDate, tasksByDate, onSelectDate }: WeekStrip
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: Spacing.one,
   },
   day: {
     flex: 1,
     minHeight: 72,
-    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.half,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    gap: Spacing.two,
     paddingVertical: Spacing.one,
   },
-  count: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: 700,
+  weekday: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 500,
+    textAlign: 'center',
   },
-  countSpacer: {
-    height: 14,
+  date: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateNumber: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: 600,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });

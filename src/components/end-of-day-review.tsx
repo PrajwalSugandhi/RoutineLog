@@ -1,9 +1,9 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -28,7 +28,6 @@ import {
 } from '@/utils/review';
 
 type EndOfDayReviewProps = {
-  visible: boolean;
   dateKey: string;
   status: ReviewStatus;
   summary: ReviewSummary;
@@ -46,7 +45,6 @@ type EndOfDayReviewProps = {
 };
 
 export function EndOfDayReview({
-  visible,
   dateKey,
   status,
   summary,
@@ -73,7 +71,6 @@ export function EndOfDayReview({
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
-    if (!visible) return;
     setActionError(null);
     setKeptIds([]);
     setMovingTaskId(null);
@@ -82,7 +79,7 @@ export function EndOfDayReview({
     onBegin().catch((error: unknown) => {
       setActionError(error instanceof Error ? error.message : 'Could not open this review.');
     });
-  }, [visible, dateKey, onBegin]);
+  }, [dateKey, onBegin]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -140,17 +137,14 @@ export function EndOfDayReview({
         : `Finish with ${summary.pending} still open`;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <ThemedView style={styles.screen}>
         <SafeAreaView style={styles.safeArea}>
           <KeyboardAvoidingView
             style={styles.safeArea}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.header}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close review" onPress={onClose} style={styles.headerButton}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                Close
-              </ThemedText>
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onClose} style={styles.headerButton}>
+              <MaterialIcons name="chevron-left" size={28} color={theme.text} />
             </Pressable>
             <ThemedText type="smallBold">End-of-day review</ThemedText>
             <View style={styles.headerButton} />
@@ -335,7 +329,6 @@ export function EndOfDayReview({
           </KeyboardAvoidingView>
         </SafeAreaView>
       </ThemedView>
-    </Modal>
   );
 }
 

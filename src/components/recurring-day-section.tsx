@@ -9,7 +9,9 @@ import { recurringTypeLabel } from '@/utils/recurring';
 
 type RecurringDaySectionProps = {
   entries: RecurringDayEntry[];
-  hint: string;
+  hint?: string;
+  title?: string;
+  showHeading?: boolean;
   onToggleBoolean: (entry: RecurringDayEntry) => void;
   onCommitNumber?: (taskId: string, value: number | null) => Promise<void>;
 };
@@ -17,6 +19,8 @@ type RecurringDaySectionProps = {
 export function RecurringDaySection({
   entries,
   hint,
+  title = 'Every day',
+  showHeading = true,
   onToggleBoolean,
   onCommitNumber,
 }: RecurringDaySectionProps) {
@@ -24,11 +28,17 @@ export function RecurringDaySection({
   if (entries.length === 0) return null;
 
   return (
-    <View style={styles.section}>
-      <ThemedText type="smallBold">Every day</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {hint}
-      </ThemedText>
+    <View style={[styles.section, !showHeading && styles.sectionEmbedded]}>
+      {showHeading ? (
+        <>
+          <ThemedText type="smallBold">{title}</ThemedText>
+          {hint ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {hint}
+            </ThemedText>
+          ) : null}
+        </>
+      ) : null}
       {entries.map((entry) => {
         const checked = entry.task.valueType === 'boolean' && entry.value === 1;
         return (
@@ -83,6 +93,9 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
     paddingTop: Spacing.three,
+  },
+  sectionEmbedded: {
+    paddingTop: 0,
   },
   row: {
     flexDirection: 'row',

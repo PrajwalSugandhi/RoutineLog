@@ -1,41 +1,25 @@
-import { useCallback, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
-import { HabitActionsModal, type HabitMenuAnchor } from '@/components/habit-actions-modal';
-import { HabitEditModal } from '@/components/habit-edit-modal';
-import { HabitReviewModal } from '@/components/habit-review-modal';
-import { RecurringFormModal } from '@/components/recurring-form-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useRecurringTasks } from '@/hooks/use-recurring-tasks';
 import { useTheme } from '@/hooks/use-theme';
-import type { RecurringDayEntry, RecurringTaskDraft } from '@/types/recurring-task';
+import type { RecurringDayEntry } from '@/types/recurring-task';
 import { todayKey } from '@/utils/date';
 import { recurringTypeLabel, todayRecurringStatus } from '@/utils/recurring';
 
 export function HabitsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { entries, loading, error, refresh, create } = useRecurringTasks();
-  const [creating, setCreating] = useState(false);
-  const [menu, setMenu] = useState<{ id: string; anchor: HabitMenuAnchor } | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [reviewId, setReviewId] = useState<string | null>(null);
+  const { entries, loading, error, refresh } = useRecurringTasks();
   const today = todayKey();
   const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
   const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
-
-  const handleChanged = useCallback(() => {
-    void refresh();
-  }, [refresh]);
-
-  async function handleCreate(draft: RecurringTaskDraft) {
-    await create(draft);
-    setCreating(false);
-  }
+  const fabBottom = insets.bottom + Spacing.three;
 
   return (
     <ThemedView style={styles.screen}>
@@ -44,7 +28,7 @@ export function HabitsScreen() {
           Habits
         </ThemedText>
         <ThemedText themeColor="textSecondary">
-          Everyday tasks. Use the menu on a habit to edit it or review a date range.
+          Everyday tasks. Tap a habit to review it.
         </ThemedText>
         {error ? (
           <View style={styles.errorRow}>
@@ -75,14 +59,14 @@ export function HabitsScreen() {
                 title="No everyday tasks"
                 message="Add one for something you do every day, like the gym or practice questions."
                 actionLabel="Add everyday task"
-                onAction={() => setCreating(true)}
+                onAction={() => router.push('/new-habit')}
               />
             }
             renderItem={({ item }) => (
               <HabitRow
                 entry={item}
                 today={today}
-                onMenu={(anchor) => setMenu({ id: item.task.id, anchor })}
+                onPress={() => router.push(`/habits/${item.task.id}`)}
               />
             )}
           />
@@ -92,31 +76,15 @@ export function HabitsScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add everyday task"
-        onPress={() => setCreating(true)}
+        onPress={() => router.push('/new-habit')}
         testID="add-habit-button"
         style={({ pressed }) => [
           styles.fab,
-          { backgroundColor: theme.accent, bottom: bottomSpace, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: theme.accent, bottom: fabBottom, opacity: pressed ? 0.85 : 1 },
         ]}>
         <ThemedText style={[styles.fabLabel, { color: theme.onAccent }]}>+</ThemedText>
       </Pressable>
 
-      <RecurringFormModal visible={creating} onClose={() => setCreating(false)} onSubmit={handleCreate} />
-      <HabitActionsModal
-        visible={menu != null}
-        anchor={menu?.anchor ?? null}
-        onClose={() => setMenu(null)}
-        onEdit={() => {
-          setEditId(menu?.id ?? null);
-          setMenu(null);
-        }}
-        onReview={() => {
-          setReviewId(menu?.id ?? null);
-          setMenu(null);
-        }}
-      />
-      <HabitEditModal taskId={editId} onClose={() => setEditId(null)} onChanged={handleChanged} />
-      <HabitReviewModal taskId={reviewId} onClose={() => setReviewId(null)} onChanged={handleChanged} />
     </ThemedView>
   );
 }
@@ -124,42 +92,32 @@ export function HabitsScreen() {
 function HabitRow({
   entry,
   today,
-  onMenu,
+  onPress,
 }: {
   entry: RecurringDayEntry;
   today: string;
-  onMenu: (anchor: HabitMenuAnchor) => void;
+  onPress: () => void;
 }) {
   const theme = useTheme();
-  const menuAnchorRef = useRef<View>(null);
 
   return (
-    <View style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
-        <View style={[styles.rowBody, styles.bodyInset]} testID={`habit-item-${entry.task.id}`}>
-          <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {recurringTypeLabel(entry.task.valueType)} · {todayRecurringStatus(entry.task, entry.value, today)}
-          </ThemedText>
-        </View>
-        <View ref={menuAnchorRef} collapsable={false}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`More options for ${entry.task.title}`}
-            onPress={() => {
-              menuAnchorRef.current?.measureInWindow((x, y, width, height) => {
-                onMenu({ x, y, width, height });
-              });
-            }}
-            hitSlop={4}
-            testID={`habit-menu-${entry.task.id}`}
-            style={({ pressed }) => [styles.menuHit, pressed && styles.pressed]}>
-            <ThemedText accessibilityElementsHidden importantForAccessibility="no" style={styles.menuIcon}>
-              ⋮
-            </ThemedText>
-          </Pressable>
-        </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Review ${entry.task.title}`}
+      onPress={onPress}
+      testID={`habit-item-${entry.task.id}`}
+      style={({ pressed }) => [
+        styles.row,
+        { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.75 : 1 },
+      ]}>
+      <View style={styles.rowBody}>
+        <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {recurringTypeLabel(entry.task.valueType)} · {todayRecurringStatus(entry.task, entry.value, today)}
+        </ThemedText>
       </View>
-    );
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -205,24 +163,7 @@ const styles = StyleSheet.create({
   rowBody: {
     flex: 1,
     gap: Spacing.half,
-    paddingVertical: Spacing.three,
-  },
-  bodyInset: {
-    paddingLeft: Spacing.three,
-  },
-  menuHit: {
-    width: 48,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuIcon: {
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: 700,
-  },
-  pressed: {
-    opacity: 0.7,
+    padding: Spacing.three,
   },
   fab: {
     position: 'absolute',

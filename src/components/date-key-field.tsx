@@ -1,11 +1,11 @@
-import DateTimePicker from '@expo/ui/community/datetime-picker';
-import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import DateTimePicker from "@expo/ui/community/datetime-picker";
+import { useState } from "react";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { addDays, formatDayHeading, isDateKey, parseDateKey, toDateKey } from '@/utils/date';
+import { ThemedText } from "@/components/themed-text";
+import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { formatDayHeading, isDateKey, parseDateKey, toDateKey } from "@/utils/date";
 
 type DateKeyFieldProps = {
   label: string;
@@ -19,12 +19,6 @@ export function DateKeyField({ label, value, onChange }: DateKeyFieldProps) {
   const valid = isDateKey(value);
   const heading = valid ? formatDayHeading(value) : null;
 
-  function shift(days: number) {
-    if (!valid) return;
-    onChange(addDays(value, days));
-    setPickerOpen(false);
-  }
-
   return (
     <View style={styles.field}>
       <ThemedText type="smallBold">{label}</ThemedText>
@@ -33,63 +27,48 @@ export function DateKeyField({ label, value, onChange }: DateKeyFieldProps) {
           {heading.title} · {heading.detail}
         </ThemedText>
       ) : (
-        <ThemedText themeColor="textSecondary">Enter a calendar date</ThemedText>
+        <ThemedText themeColor="textSecondary">Choose a calendar date</ThemedText>
       )}
-      <TextInput
-        value={value}
-        onChangeText={(next) => {
-          onChange(next.trim());
-          setPickerOpen(false);
-        }}
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-      <View style={styles.actions}>
-        <TextButton label="Previous day" onPress={() => shift(-1)} />
-        <TextButton label="Next day" onPress={() => shift(1)} />
-        {Platform.OS === 'web' ? null : (
-          <TextButton label="Choose date" onPress={() => setPickerOpen(true)} />
-        )}
-      </View>
-      {pickerOpen && valid ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={heading ? `${label}, ${heading.detail}` : `Choose ${label}`}
+        onPress={() => setPickerOpen(true)}
+        style={({ pressed }) => [
+          styles.input,
+          { backgroundColor: theme.backgroundElement },
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText style={{ color: valid ? theme.text : theme.textSecondary }}>
+          {valid ? value : "Choose date"}
+        </ThemedText>
+      </Pressable>
+      {pickerOpen ? (
         <DateTimePicker
-          value={parseDateKey(value)}
+          value={valid ? parseDateKey(value) : new Date()}
           mode="date"
           onValueChange={(_event, date) => {
             onChange(toDateKey(date));
-            if (Platform.OS === 'android') setPickerOpen(false);
+            if (Platform.OS === "android") setPickerOpen(false);
           }}
           onDismiss={() => setPickerOpen(false)}
         />
       ) : null}
-      {pickerOpen && !valid ? (
-        <ThemedText type="small" style={{ color: theme.danger }}>
-          Fix the date before opening the calendar.
-        </ThemedText>
-      ) : null}
-      {pickerOpen && Platform.OS === 'ios' ? (
-        <TextButton label="Done" onPress={() => setPickerOpen(false)} />
+      {pickerOpen && Platform.OS === "ios" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+          onPress={() => setPickerOpen(false)}
+          style={({ pressed }) => [
+            styles.done,
+            { backgroundColor: theme.backgroundSelected },
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold">Done</ThemedText>
+        </Pressable>
       ) : null}
     </View>
-  );
-}
-
-function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.textButton,
-        { backgroundColor: theme.backgroundSelected },
-        pressed && styles.pressed,
-      ]}>
-      <ThemedText type="smallBold">{label}</ThemedText>
-    </Pressable>
   );
 }
 
@@ -102,19 +81,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    fontSize: 16,
+    justifyContent: "center",
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  textButton: {
+  done: {
     minHeight: 44,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.five,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
   },
   pressed: {
     opacity: 0.7,
