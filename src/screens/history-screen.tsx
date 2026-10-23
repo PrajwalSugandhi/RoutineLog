@@ -1,24 +1,32 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SymbolView } from "expo-symbols";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { DateNavigator } from '@/components/date-navigator';
-import { EmptyState } from '@/components/empty-state';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
-import { useHistory } from '@/hooks/use-history';
-import { useTheme } from '@/hooks/use-theme';
-import { buildWeek } from '@/utils/calendar';
-import { addDays, formatDayHeading, todayKey } from '@/utils/date';
+import { EmptyState } from "@/components/empty-state";
+import { ThemedText } from "@/components/themed-text";
+import { WeekStrip } from "@/components/week-strip";
+import { ThemedView } from "@/components/themed-view";
+import { BottomTabInset, Spacing } from "@/constants/theme";
+import { useHistory } from "@/hooks/use-history";
+import { useTheme } from "@/hooks/use-theme";
+import { buildWeek, formatWeekHeading } from "@/utils/calendar";
+import { addDays, formatDayHeading, todayKey } from "@/utils/date";
 import {
   buildDayInspection,
   checkedOffOn,
   completionLabel,
   rescheduleCount,
   type HistoryTask,
-} from '@/utils/history';
-import { reviewStatusLabel } from '@/utils/review';
+} from "@/utils/history";
+import { reviewStatusLabel } from "@/utils/review";
 
 export function HistoryScreen() {
   const theme = useTheme();
@@ -26,11 +34,15 @@ export function HistoryScreen() {
   const { bundle, loading, error, refresh } = useHistory();
   const [selectedDate, setSelectedDate] = useState(() => todayKey());
   const today = todayKey();
-  const thisWeek = buildWeek(today);
-  const selectedWeek = buildWeek(selectedDate);
+  const thisWeek = useMemo(() => buildWeek(today), [today]);
+  const selectedWeek = useMemo(() => buildWeek(selectedDate), [selectedDate]);
+  const weekHeading = formatWeekHeading(selectedDate);
 
   const inspection = useMemo(
-    () => (bundle ? buildDayInspection(selectedDate, bundle.tasks, bundle.events) : null),
+    () =>
+      bundle
+        ? buildDayInspection(selectedDate, bundle.tasks, bundle.events)
+        : null,
     [bundle, selectedDate],
   );
   const weekInspections = useMemo(
@@ -38,7 +50,11 @@ export function HistoryScreen() {
       bundle
         ? selectedWeek.map((dateKey) => ({
             dateKey,
-            inspection: buildDayInspection(dateKey, bundle.tasks, bundle.events),
+            inspection: buildDayInspection(
+              dateKey,
+              bundle.tasks,
+              bundle.events,
+            ),
           }))
         : [],
     [bundle, selectedWeek],
@@ -48,114 +64,180 @@ export function HistoryScreen() {
       bundle
         ? bundle.tasks
             .filter((task) => task.postponedCount > 0)
-            .sort((left, right) => right.postponedCount - left.postponedCount || left.title.localeCompare(right.title))
+            .sort(
+              (left, right) =>
+                right.postponedCount - left.postponedCount ||
+                left.title.localeCompare(right.title),
+            )
         : [],
     [bundle],
   );
-  const review = bundle?.reviews.find((item) => item.date === selectedDate) ?? null;
+  const review =
+    bundle?.reviews.find((item) => item.date === selectedDate) ?? null;
   const heading = formatDayHeading(selectedDate);
-  const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
+  const topSpace = Platform.OS === "web" ? Spacing.six : insets.top;
   const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
 
   return (
     <ThemedView style={styles.screen}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           { paddingTop: topSpace + Spacing.two, paddingBottom: bottomSpace },
-        ]}>
+        ]}
+      >
         <ThemedText accessibilityRole="header" style={styles.title}>
           History
         </ThemedText>
-        <DateNavigator
-          dateKey={selectedDate}
-          view="day"
-          showBrand={false}
-          onPrevious={() => setSelectedDate((date) => addDays(date, -1))}
-          onNext={() => setSelectedDate((date) => addDays(date, 1))}
-          onToday={() => setSelectedDate(todayKey())}
-        />
 
         {loading ? (
           <ActivityIndicator color={theme.accent} />
         ) : error ? (
-          <EmptyState title="Could not load history" message={error} actionLabel="Retry" onAction={() => void refresh()} />
+          <EmptyState
+            title="Could not load history"
+            message={error}
+            actionLabel="Retry"
+            onAction={() => void refresh()}
+          />
         ) : bundle && inspection ? (
           <>
             <View style={styles.metrics}>
-              <Metric label="Checked off today" value={String(checkedOffOn(bundle.events, [today]))} />
-              <Metric label="Checked off this week" value={String(checkedOffOn(bundle.events, thisWeek))} />
+              <Metric
+                label="Checked off today"
+                value={String(checkedOffOn(bundle.events, [today]))}
+              />
+              <Metric
+                label="Checked off this week"
+                value={String(checkedOffOn(bundle.events, thisWeek))}
+              />
               <Metric
                 label="Still open"
-                value={String(bundle.tasks.filter((task) => task.status === 'pending').length)}
+                value={String(
+                  bundle.tasks.filter((task) => task.status === "pending")
+                    .length,
+                )}
               />
               <Metric label="Postponed" value={String(postponed.length)} />
             </View>
 
             <View style={styles.section}>
-              <ThemedText type="smallBold">
-                {selectedWeek.includes(today) ? 'This week' : 'Selected week'}
-              </ThemedText>
-              <View style={styles.weekRow}>
-                {weekInspections.map(({ dateKey, inspection: day }) => {
-                  const selected = dateKey === selectedDate;
-                  const dayNumber = Number(dateKey.slice(8));
-                  return (
-                    <Pressable
-                      key={dateKey}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={`${formatDayHeading(dateKey).detail}, ${completionLabel(day.completedCount, day.planned)}`}
-                      onPress={() => setSelectedDate(dateKey)}
-                      style={[
-                        styles.weekDay,
-                        { backgroundColor: selected ? theme.accent : theme.backgroundElement },
-                      ]}>
-                      <ThemedText type="smallBold" style={{ color: selected ? theme.onAccent : theme.text }}>
-                        {dayNumber}
-                      </ThemedText>
-                      <ThemedText
-                        style={[styles.weekRate, { color: selected ? theme.onAccent : theme.textSecondary }]}>
-                        {day.planned === 0 ? '–' : `${Math.round((day.rate ?? 0) * 100)}%`}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
+              <View style={styles.weekHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous week"
+                  onPress={() => setSelectedDate((date) => addDays(date, -7))}
+                  style={({ pressed }) => [
+                    styles.weekNav,
+                    { backgroundColor: theme.backgroundElement },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <SymbolView
+                    name={{
+                      ios: "chevron.left",
+                      android: "chevron_left",
+                      web: "chevron_left",
+                    }}
+                    size={18}
+                    weight="bold"
+                    tintColor={theme.text}
+                  />
+                </Pressable>
+                <ThemedText type="smallBold" style={styles.weekTitle}>
+                  {weekHeading.title}
+                </ThemedText>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Next week"
+                  onPress={() => setSelectedDate((date) => addDays(date, 7))}
+                  style={({ pressed }) => [
+                    styles.weekNav,
+                    { backgroundColor: theme.backgroundElement },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <SymbolView
+                    name={{
+                      ios: "chevron.right",
+                      android: "chevron_right",
+                      web: "chevron_right",
+                    }}
+                    size={18}
+                    weight="bold"
+                    tintColor={theme.text}
+                  />
+                </Pressable>
               </View>
+              <WeekStrip
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                summaryForDate={(dateKey) => {
+                  const day = weekInspections.find((item) => item.dateKey === dateKey)
+                    ?.inspection;
+                  if (!day) {
+                    return { count: 0, pending: 0, label: "Nothing planned" };
+                  }
+                  return {
+                    count: day.planned,
+                    pending: day.pending.length,
+                    label: completionLabel(day.completedCount, day.planned),
+                  };
+                }}
+              />
             </View>
 
-            <View style={[styles.summary, { backgroundColor: theme.backgroundElement }]}>
+            <View
+              style={[
+                styles.summary,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
               <ThemedText type="smallBold">
                 {heading.title} · {heading.detail}
               </ThemedText>
-              <ThemedText>{completionLabel(inspection.completedCount, inspection.planned)}</ThemedText>
+              <ThemedText>
+                {completionLabel(inspection.completedCount, inspection.planned)}
+              </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {review ? `Review ${reviewStatusLabel(review.status, inspection.pending.length).toLowerCase()}` : 'Review not started'}
+                {review
+                  ? `Review ${reviewStatusLabel(review.status, inspection.pending.length).toLowerCase()}`
+                  : "Review not started"}
               </ThemedText>
             </View>
 
-            <TaskSection title="Still pending" tasks={inspection.pending} empty="Nothing is still waiting on this day.">
+            <TaskSection
+              title="Still pending"
+              tasks={inspection.pending}
+              empty="Nothing is still waiting on this day."
+            >
               {(task) => <TaskMeta task={task} events={bundle.events} />}
             </TaskSection>
             <TaskSection
               title="Completed for this day"
               tasks={inspection.completed}
-              empty="Nothing was completed for this day.">
+              empty="Nothing was completed for this day."
+            >
               {(task) => (
                 <ThemedText type="small" themeColor="textSecondary">
                   {task.scheduledDate === selectedDate
-                    ? 'Still on this day'
+                    ? "Still on this day"
                     : `Now on ${formatDayHeading(task.scheduledDate).detail}`}
                 </ThemedText>
               )}
             </TaskSection>
-            <TaskSection title="Moved away" tasks={inspection.movedAway} empty="Nothing was moved off this day.">
+            <TaskSection
+              title="Moved away"
+              tasks={inspection.movedAway}
+              empty="Nothing was moved off this day."
+            >
               {(task) => (
                 <ThemedText type="small" themeColor="textSecondary">
                   Now on {formatDayHeading(task.scheduledDate).detail}
                   {task.originalScheduledDate !== task.scheduledDate
                     ? ` · first planned ${formatDayHeading(task.originalScheduledDate).detail}`
-                    : ''}
+                    : ""}
                 </ThemedText>
               )}
             </TaskSection>
@@ -168,17 +250,27 @@ export function HistoryScreen() {
                 </ThemedText>
               ) : (
                 postponed.map((task) => (
-                  <View key={task.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+                  <View
+                    key={task.id}
+                    style={[
+                      styles.card,
+                      { backgroundColor: theme.backgroundElement },
+                    ]}
+                  >
                     <ThemedText>{task.title}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
-                      Postponed {task.postponedCount} {task.postponedCount === 1 ? 'time' : 'times'}
-                      {' · '}
-                      Rescheduled {rescheduleCount(bundle.events, task.id)}{' '}
-                      {rescheduleCount(bundle.events, task.id) === 1 ? 'time' : 'times'}
+                      Postponed {task.postponedCount}{" "}
+                      {task.postponedCount === 1 ? "time" : "times"}
+                      {" · "}
+                      Rescheduled {rescheduleCount(bundle.events, task.id)}{" "}
+                      {rescheduleCount(bundle.events, task.id) === 1
+                        ? "time"
+                        : "times"}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
-                      First planned {formatDayHeading(task.originalScheduledDate).detail} · now{' '}
-                      {formatDayHeading(task.scheduledDate).detail}
+                      First planned{" "}
+                      {formatDayHeading(task.originalScheduledDate).detail} ·
+                      now {formatDayHeading(task.scheduledDate).detail}
                     </ThemedText>
                   </View>
                 ))
@@ -226,7 +318,10 @@ function TaskSection({
         </ThemedText>
       ) : (
         tasks.map((task) => (
-          <View key={task.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          <View
+            key={task.id}
+            style={[styles.card, { backgroundColor: theme.backgroundElement }]}
+          >
             <ThemedText>{task.title}</ThemedText>
             {children(task)}
           </View>
@@ -236,7 +331,13 @@ function TaskSection({
   );
 }
 
-function TaskMeta({ task, events }: { task: HistoryTask; events: Parameters<typeof rescheduleCount>[0] }) {
+function TaskMeta({
+  task,
+  events,
+}: {
+  task: HistoryTask;
+  events: Parameters<typeof rescheduleCount>[0];
+}) {
   const moves = rescheduleCount(events, task.id);
   const planned =
     task.originalScheduledDate === task.scheduledDate
@@ -244,9 +345,14 @@ function TaskMeta({ task, events }: { task: HistoryTask; events: Parameters<type
       : `First planned ${formatDayHeading(task.originalScheduledDate).detail}`;
   return (
     <ThemedText type="small" themeColor="textSecondary">
-      {[moves > 0 ? `Rescheduled ${moves} ${moves === 1 ? 'time' : 'times'}` : null, planned]
+      {[
+        moves > 0
+          ? `Rescheduled ${moves} ${moves === 1 ? "time" : "times"}`
+          : null,
+        planned,
+      ]
         .filter(Boolean)
-        .join(' · ') || 'Not rescheduled'}
+        .join(" · ") || "Not rescheduled"}
     </ThemedText>
   );
 }
@@ -263,12 +369,12 @@ const styles = StyleSheet.create({
     fontWeight: 600,
   },
   metrics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.two,
   },
   metric: {
-    width: '48%',
+    width: "48%",
     flexGrow: 1,
     borderRadius: Spacing.three,
     padding: Spacing.three,
@@ -279,21 +385,24 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: 600,
   },
-  weekRow: {
-    flexDirection: 'row',
-    gap: Spacing.one,
+  weekHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
   },
-  weekDay: {
-    flex: 1,
-    minHeight: 56,
+  weekNav: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  weekRate: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: 700,
+  weekTitle: {
+    flex: 1,
+    textAlign: "center",
+  },
+  pressed: {
+    opacity: 0.7,
   },
   summary: {
     borderRadius: Spacing.three,

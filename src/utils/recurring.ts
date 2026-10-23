@@ -1,4 +1,4 @@
-import { addDays, isDateKey, parseDateKey, toDateKey } from '@/utils/date';
+import { addDays, addMonths, isDateKey, parseDateKey, toDateKey } from '@/utils/date';
 import type { RecurringLog, RecurringTask, RecurringValueType } from '@/types/recurring-task';
 
 export const MAX_RECURRING_RANGE_DAYS = 3660;
@@ -137,16 +137,18 @@ export function summarizeNumericRange(
   return { total, days, tooLong: false };
 }
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export type HabitHeatCell = {
-  dateKey: string;
+  dateKey: string | null;
   amount: number;
 };
 
-export type HabitHeatWeek = {
-  days: HabitHeatCell[];
-  monthLabel: string | null;
+export type HabitHeatMonth = {
+  key: string;
+  label: string;
+  year: number;
+  weeks: HabitHeatCell[][];
 };
 
 export type HabitPatternStats = {
@@ -159,41 +161,44 @@ export function buildHabitHeatmap(
   start: string,
   end: string,
   amounts: ReadonlyMap<string, number>,
-): HabitHeatWeek[] {
+): HabitHeatMonth[] {
   if (!isDateKey(start) || !isDateKey(end) || start > end) return [];
-  const gridStart = startOfMonday(start);
-  const weeks: HabitHeatWeek[] = [];
-  let cursor = gridStart;
-  let labeledMonth = '';
-  let labeledYear: number | null = null;
-  const weekLimit = Math.ceil(MAX_RECURRING_RANGE_DAYS / 7) + 1;
+  const anchor = start < end ? start : end;
+  let monthCursor = startOfMonth(addMonths(anchor, -1));
+  const endMonth = startOfMonth(end);
+  const months: HabitHeatMonth[] = [];
+  const monthLimit = Math.ceil(MAX_RECURRING_RANGE_DAYS / 28) + 2;
 
-  while (cursor <= end && weeks.length < weekLimit) {
-    const cells: HabitHeatCell[] = [];
-    for (let index = 0; index < 7; index += 1) {
-      const dateKey = addDays(cursor, index);
-      if (dateKey > end) break;
-      cells.push({ dateKey, amount: amounts.get(dateKey) ?? 0 });
-    }
-    if (cells.length === 0) break;
-    const first = cells.find((cell) => cell.dateKey >= start);
-    let monthLabel: string | null = null;
-    if (first) {
-      const month = first.dateKey.slice(0, 7);
-      if (month !== labeledMonth) {
-        const date = parseDateKey(first.dateKey);
-        const year = date.getFullYear();
-        const name = MONTH_LABELS[date.getMonth()] ?? '';
-        monthLabel = labeledYear == null || year !== labeledYear ? `${name} ${year}` : name;
-        labeledMonth = month;
-        labeledYear = year;
+  while (monthCursor <= endMonth && months.length < monthLimit) {
+    const monthDate = parseDateKey(monthCursor);
+    const monthEnd = earlierDateKey(endOfMonth(monthCursor), end);
+    const weeks: HabitHeatCell[][] = [];
+    let weekCursor = startOfMonday(monthCursor);
+
+    while (weekCursor <= monthEnd && weeks.length < 6) {
+      const cells: HabitHeatCell[] = [];
+      for (let index = 0; index < 7; index += 1) {
+        const dateKey = addDays(weekCursor, index);
+        if (dateKey < monthCursor || dateKey > monthEnd) {
+          cells.push({ dateKey: null, amount: 0 });
+        } else {
+          cells.push({ dateKey, amount: amounts.get(dateKey) ?? 0 });
+        }
       }
+      weeks.push(cells);
+      weekCursor = addDays(weekCursor, 7);
     }
-    weeks.push({ days: cells, monthLabel });
-    cursor = addDays(cursor, 7);
+
+    months.push({
+      key: monthCursor.slice(0, 7),
+      label: MONTH_LABELS[monthDate.getMonth()] ?? '',
+      year: monthDate.getFullYear(),
+      weeks,
+    });
+    monthCursor = startOfMonth(addMonths(monthCursor, 1));
   }
 
-  return weeks;
+  return months;
 }
 
 function startOfMonday(dateKey: string): string {

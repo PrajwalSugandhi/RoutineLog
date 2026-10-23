@@ -15,12 +15,14 @@ type HabitHeatmapProps = {
   startDate: string;
   today: string;
   logs: readonly HabitLog[];
+  showCaption?: boolean;
 };
 
 const GAP = 3;
-const CELL = 11;
+const CELL = 12;
+const MONTH_GAP = 14;
 
-export function HabitHeatmap({ startDate, today, logs }: HabitHeatmapProps) {
+export function HabitHeatmap({ startDate, today, logs, showCaption = true }: HabitHeatmapProps) {
   const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const amounts = useMemo(() => {
@@ -28,17 +30,16 @@ export function HabitHeatmap({ startDate, today, logs }: HabitHeatmapProps) {
     for (const log of logs) map.set(log.dateKey, log.amount);
     return map;
   }, [logs]);
-  const weeks = useMemo(
+  const months = useMemo(
     () => buildHabitHeatmap(startDate, today, amounts),
     [amounts, startDate, today],
   );
   const label = habitPatternLabel(habitPatternStats(amounts, startDate, today));
   const empty = theme.background === '#000000' ? '#3A3D42' : '#D5D5DA';
-  const stride = CELL + GAP;
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: false });
-  }, [weeks.length]);
+  }, [months.length]);
 
   return (
     <View accessibilityRole="image" accessibilityLabel={label} style={styles.block}>
@@ -47,48 +48,51 @@ export function HabitHeatmap({ startDate, today, logs }: HabitHeatmapProps) {
         horizontal
         showsHorizontalScrollIndicator={false}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
-        <View>
-          <View style={[styles.monthRow, { width: Math.max(weeks.length, 1) * stride }]}>
-            {weeks.map((week, index) =>
-              week.monthLabel ? (
-                <ThemedText
-                  key={week.days[0]?.dateKey ?? index}
-                  themeColor="textSecondary"
-                  style={[styles.monthLabel, { left: index * stride }]}>
-                  {week.monthLabel}
-                </ThemedText>
-              ) : null,
-            )}
-          </View>
-          <View style={[styles.grid, { gap: GAP }]}>
-            {weeks.map((week) => (
-              <View key={week.days[0]?.dateKey} style={{ width: CELL, gap: GAP }}>
-                {week.days.map((day) => {
-                  const started = day.dateKey >= startDate;
-                  const done = started && day.amount > 0;
-                  const pendingToday = day.dateKey === today && started && !done;
-                  return (
-                    <View
-                      key={day.dateKey}
-                      style={{
-                        width: CELL,
-                        height: CELL,
-                        borderRadius: CELL / 2,
-                        backgroundColor: done ? theme.success : pendingToday ? 'transparent' : empty,
-                        borderWidth: pendingToday ? 1.5 : 0,
-                        borderColor: theme.textSecondary,
-                      }}
-                    />
-                  );
-                })}
+        <View style={styles.months}>
+          {months.map((month) => (
+            <View
+              key={month.key}
+              accessibilityLabel={`${month.label} ${month.year}`}
+              style={styles.month}>
+              <View style={[styles.grid, { gap: GAP }]}>
+                {month.weeks.map((week, weekIndex) => (
+                  <View key={`${month.key}-${weekIndex}`} style={{ width: CELL, gap: GAP }}>
+                    {week.map((day, dayIndex) => {
+                      if (!day.dateKey) {
+                        return <View key={`${month.key}-pad-${weekIndex}-${dayIndex}`} style={styles.cell} />;
+                      }
+                      const started = day.dateKey >= startDate && day.dateKey <= today;
+                      const done = started && day.amount > 0;
+                      const pendingToday = day.dateKey === today && started && !done;
+                      return (
+                        <View
+                          key={day.dateKey}
+                          style={[
+                            styles.cell,
+                            {
+                              backgroundColor: done ? theme.success : pendingToday ? 'transparent' : empty,
+                              borderWidth: pendingToday ? 1.5 : 0,
+                              borderColor: theme.textSecondary,
+                            },
+                          ]}
+                        />
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+              <ThemedText themeColor="textSecondary" style={styles.monthLabel}>
+                {month.label}
+              </ThemedText>
+            </View>
+          ))}
         </View>
       </ScrollView>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
+      {showCaption ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
+        </ThemedText>
+      ) : null}
     </View>
   );
 }
@@ -97,19 +101,27 @@ const styles = StyleSheet.create({
   block: {
     gap: Spacing.two,
   },
-  monthRow: {
-    height: 16,
-    marginBottom: Spacing.one,
+  months: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: MONTH_GAP,
   },
-  monthLabel: {
-    position: 'absolute',
-    top: 0,
-    width: 72,
-    fontSize: 11,
-    lineHeight: 14,
+  month: {
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   grid: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  cell: {
+    width: CELL,
+    height: CELL,
+    borderRadius: 3,
+  },
+  monthLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
   },
 });

@@ -13,8 +13,8 @@ RoutineLog is a personal productivity app. It is meant for someone who wants to 
 ## What you can do
 
 - Add, edit, complete, reopen, and delete tasks for any date.
-- See daily progress: how many tasks are done and how many are still open.
-- Switch between day, week, and month. Selecting a date shows that day’s tasks.
+- See the week at a glance. A dot shows whether that day’s tasks are still open or all done.
+- Switch between day, week, and month. Selecting a date shows that day’s tasks and habits.
 - Review a day and explicitly resolve every unfinished task.
 - Inspect an earlier day without the record changing just because a task was later moved.
 - Keep working after the app is closed. Data is not stored in an account or on a server.
@@ -69,7 +69,7 @@ More detail:
 ## How the app is organized
 
 ```text
-src/app/            screens and navigation (Today, Habits, History)
+src/app/            screens and navigation (Home, Habits, History)
 src/screens/        screen logic
 src/components/     task rows, calendars, review, forms
 src/hooks/          load and refresh tasks, reviews, and history
@@ -101,7 +101,7 @@ Included now:
 - Daily task management with priority, notes, and an optional time
 - Day, week, and month calendars
 - End-of-day review with an explicit choice for every open task
-- History and simple week rates based on events, not only the task’s current date
+- History for a past day, with the same week strip as Home and a finished count that still includes tasks later moved away
 - Everyday habits: a yes/no tick or a daily number, with a date-range total
 
 Not included yet:

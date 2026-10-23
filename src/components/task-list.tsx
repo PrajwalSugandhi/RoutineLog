@@ -13,28 +13,47 @@ type TaskListProps = {
   onPress: (task: Task) => void;
   onDelete: (task: Task) => void;
   onAdd: () => void;
+  header?: ReactElement | null;
+  empty?: ReactElement | null;
   footer?: ReactElement | null;
+  centerEmpty?: boolean;
 };
 
-export function TaskList({ tasks, bottomInset, onToggle, onPress, onDelete, onAdd, footer }: TaskListProps) {
+export function TaskList({
+  tasks,
+  bottomInset,
+  onToggle,
+  onPress,
+  onDelete,
+  onAdd,
+  header,
+  empty,
+  footer,
+  centerEmpty = true,
+}: TaskListProps) {
   return (
     <FlatList
       data={tasks}
       keyExtractor={(task) => task.id}
       style={styles.list}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
       contentContainerStyle={[
         styles.content,
         { paddingBottom: bottomInset + 88 },
-        tasks.length === 0 && styles.emptyContent,
+        tasks.length === 0 && centerEmpty && styles.emptyContent,
       ]}
+      ListHeaderComponent={header ?? null}
       ListFooterComponent={footer ?? null}
       ListEmptyComponent={
-        <EmptyState
-          title="Nothing planned"
-          message="Add a task for this day, or move to another date."
-          actionLabel="Add task"
-          onAction={onAdd}
-        />
+        empty ?? (
+          <EmptyState
+            title="Nothing planned"
+            message="Add a task for this day, or move to another date."
+            actionLabel="Add task"
+            onAction={onAdd}
+          />
+        )
       }
       renderItem={({ item }) => (
         <TaskItem

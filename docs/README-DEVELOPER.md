@@ -43,7 +43,7 @@ There is no Jest suite. Pure date, calendar, review, and history rules can be ex
 
 ## Android APK
 
-The installable file is a release APK. A debug APK would look for the Expo dev server, so it is not the file to copy to a phone. `assembleRelease` bundles the JavaScript into the APK. The generated `android/` project signs that release build with the debug keystore (`android/app/debug.keystore`, store password `android`, alias `androiddebugkey`). That signature is enough to install the APK. It is not a Play Store upload key. A rebuild on another computer creates a different debug keystore, and Android will refuse to upgrade an install signed by the other key. Uninstall the old copy first.
+The installable file is a release APK. A debug APK would look for the Expo dev server, so it is not the file to copy to a phone. `assembleRelease` bundles the JavaScript into the APK. The generated `android/` project signs that release build with the debug keystore (`android/app/debug.keystore`, store password `android`, alias `androiddebugkey`). That signature is enough to install the APK. It is not a Play Store upload key. `yarn expo prebuild --platform android` clears `android/` and writes a new debug keystore, even without `--clean`. Android will refuse to upgrade an install signed by the previous key. Uninstall the old copy first.
 
 `android/` and `dist/` are gitignored. Generate them when you need a new APK. JDK 17 and Android SDK 36 are required. Android Studio’s bundled JDK is enough:
 
@@ -77,10 +77,14 @@ Related commands:
 ## Layout
 
 ```text
-src/app/_layout.tsx          providers: theme, SQLite, splash
-src/app/index.tsx            re-exports TodayScreen
-src/app/habits.tsx           re-exports HabitsScreen
-src/app/history.tsx          re-exports HistoryScreen
+src/app/_layout.tsx          stack, theme, SQLite, splash
+src/app/(tabs)/_layout.tsx   native tabs
+src/app/(tabs)/index.tsx     re-exports HomeScreen
+src/app/(tabs)/habits/       habits list, review, and edit
+src/app/(tabs)/history.tsx   re-exports HistoryScreen
+src/app/new-task.tsx         new task screen
+src/app/new-habit.tsx        new habit screen
+src/app/end-of-day-review.tsx  review for the date passed in the route
 src/screens                  screen state and composition
 src/components               presentational UI
 src/hooks                    subscribe to SQLite and refresh after writes
@@ -125,7 +129,7 @@ These questions use different data:
 | What was checked off today?              | the local calendar day of the latest uncleared `completed` timestamp                                                         |
 | What left this day unfinished?           | a `rescheduled` event with `from_date` equal to that day, task not currently scheduled there, and not completed for that day |
 
-`buildDayInspection` in `src/utils/history.ts` is the function History must keep using. A day with 1 completion and 1 move is `1 of 2`, not `1 of 1` and not an empty day. Everyday habit logs are not part of that inspection, and they do not change the selected day’s “2 of 5 complete” line.
+`buildDayInspection` in `src/utils/history.ts` is the function History must keep using. A day with 1 completion and 1 move is `1 of 2`, not `1 of 1` and not an empty day. Everyday habit logs are not part of that inspection, and they do not change the week-strip dot.
 
 Completed tasks stay on their scheduled date. Completion writes `completed_at` and a history row whose `from_date` is the scheduled date at that moment. It does not change `scheduled_date`.
 
@@ -155,7 +159,7 @@ A habit is not a copy of `tasks` and it is not created inside `rescheduleTask`. 
 - Range counts use `clipRecurringWindow` in `src/utils/recurring.ts`: from `max(start_date, from)` through `min(to, today)`. Future days are not missed and are not added into a numeric total.
 - Soft delete sets `deleted_at`. Active queries filter that column. Logs stay in the database.
 
-The selected day can tick a boolean habit. The review can tick a boolean habit or save a number. Neither write changes `day_reviews.status`.
+The selected day on Home can tick a boolean habit and save a number in the **Habits** section. The day review can do both as well, under **Every day**. The habit screen can log today and any day in its range. None of those writes change `day_reviews.status` or the week-strip dot. A blank number deletes the log row.
 
 ## Writes and the database
 
@@ -176,15 +180,19 @@ Foreign keys are enabled per connection after migrate. History rows reference `t
 | Review status transitions                        | `src/services/review-service.ts`                                                                       |
 | Day/week/month grid                              | `src/utils/calendar.ts`, `month-calendar.tsx`, `week-strip.tsx`                                        |
 | What History counts                              | `src/utils/history.ts`                                                                                 |
-| Selected-day UI                                  | `src/screens/today-screen.tsx`                                                                         |
+| Selected-day UI                                  | `src/screens/home-screen.tsx`, `src/components/home-header.tsx`                                        |
 | Everyday habits                                  | `src/services/recurring-service.ts`, `src/utils/recurring.ts`                                          |
 | A new screen                                     | add `src/app/<name>.tsx`, a screen component, and a `NativeTabs.Trigger` whose `name` matches the file |
 
-`useDayTasks(start, end)` loads every visible calendar cell’s tasks in one range query. Mutations call back into the task service and then refresh that range. `useHistory` reloads when the History tab gains focus, so a move made on Today shows up after you switch tabs.
+`useDayTasks(start, end)` loads every visible calendar cell’s tasks in one range query. Mutations call back into the task service and then refresh that range. `useHistory` reloads when the History tab gains focus, so a move made on Home shows up after you switch tabs.
 
 ## UI notes
 
-`DateNavigator` puts Previous, Today, and Next on a full-width row under the title. The old corner chevron sat under Expo Go’s developer-tools button. Keep the next control out of that top-right corner while the app is developed in Expo Go.
+Home’s header is `src/components/home-header.tsx`. The heading is the month. The view menu offers **Week** and **Month** only. The view button and the three-dot menu sit on the right edge; Home passes `trailingInset={0}`, so in Expo Go those buttons can sit under the tools button. **Review this day** opens `/end-of-day-review`. **Go to today** is the other menu row when the selected date is not today. There is no “2 of 5 complete” line. An empty day with no habits shows “You have a free day.” Otherwise the list is two sections, **Tasks** and **Habits**. **+** pushes `/new-task`. Editing a task stays on Home in `TaskForm`.
+
+`WeekStrip` is shared by Home and History. It takes `summaryForDate`. Home fills that with `summarizeTasksForWeek`, which counts tasks still scheduled on the date. A blue dot means `pending > 0`, a green dot means every one of those tasks is done, and no dot means the count is zero. History passes `planned` as the count and `pending.length` from `buildDayInspection`, so a day with only moved-away work can show a green dot while the summary under it is still “1 of 2 finished.”
+
+Home changes week or month with a horizontal swipe on the heading or the calendar. History still changes weeks with the previous and next buttons beside the week title. `DateNavigator` is not used by either screen. The Habits list opens `/habits/[id]`, which is the habit review. Edit and delete live at `/habits/[id]/edit`.
 
 The History tab reuses `assets/images/tabIcons/explore.png` because the template only shipped home and explore icons. Replace it when a real icon exists.
 
@@ -211,7 +219,7 @@ yarn tsc --noEmit
 On a device or emulator, the regression that matters:
 
 1. Create two tasks for today.
-2. Complete one, reopen it, and confirm the progress counts.
+2. Complete one. The week dot stays blue. Complete the other. The dot turns green. Reopen one. The dot turns blue again. Habits on that day do not change the dot.
 3. Move one to tomorrow from the review. It disappears from today, appears tomorrow, and keeps its title and priority.
 4. Open History for today. That day is not empty and is not 100 percent. The moved task is under Moved away, and its first planned date is unchanged. Tomorrow lists it under Still pending.
 5. Force-stop the app and reopen it. The moved task is still on tomorrow.
