@@ -1,6 +1,7 @@
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -87,6 +88,12 @@ export function TaskFormModal({ session, onClose, onSubmit }: TaskFormModalProps
     const base = validDate ?? (isDateKey(fallbackDate) ? fallbackDate : null);
     if (!base) return;
     setDateText(addDays(base, days));
+    setFormError(null);
+  }
+
+  function openDatePicker() {
+    Keyboard.dismiss();
+    setPicker('date');
     setFormError(null);
   }
 
@@ -210,26 +217,38 @@ export function TaskFormModal({ session, onClose, onSubmit }: TaskFormModalProps
 
               <Field label="Date">
                 <ThemedText>
-                  {heading ? `${heading.title} · ${heading.detail}` : 'Enter a calendar date'}
+                  {heading ? `${heading.title} · ${heading.detail}` : 'Choose a calendar date'}
                 </ThemedText>
-                <TextInput
-                  value={dateText}
-                  onChangeText={(value) => {
-                    setDateText(value.trim());
-                    setFormError(null);
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                />
+                {Platform.OS === 'web' ? (
+                  <TextInput
+                    value={dateText}
+                    onChangeText={(value) => {
+                      setDateText(value.trim());
+                      setFormError(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                  />
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose date"
+                    onPress={openDatePicker}
+                    style={({ pressed }) => [
+                      styles.input,
+                      styles.dateTrigger,
+                      { backgroundColor: theme.backgroundElement },
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText>{heading ? heading.detail : 'Choose date'}</ThemedText>
+                  </Pressable>
+                )}
                 <View style={styles.inlineActions}>
                   <TextButton label="Previous day" onPress={() => shiftDate(-1)} />
                   <TextButton label="Next day" onPress={() => shiftDate(1)} />
-                  {Platform.OS === 'web' ? null : (
-                    <TextButton label="Choose date" onPress={() => setPicker('date')} />
-                  )}
                 </View>
               </Field>
 
@@ -390,6 +409,9 @@ const styles = StyleSheet.create({
   },
   notes: {
     minHeight: 96,
+  },
+  dateTrigger: {
+    justifyContent: 'center',
   },
   chips: {
     flexDirection: 'row',
