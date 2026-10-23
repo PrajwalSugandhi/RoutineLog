@@ -1,9 +1,11 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
-import { RecurringDetailModal } from '@/components/recurring-detail-modal';
+import { HabitActionsModal, type HabitMenuAnchor } from '@/components/habit-actions-modal';
+import { HabitEditModal } from '@/components/habit-edit-modal';
+import { HabitReviewModal } from '@/components/habit-review-modal';
 import { RecurringFormModal } from '@/components/recurring-form-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -17,9 +19,11 @@ import { recurringTypeLabel, todayRecurringStatus } from '@/utils/recurring';
 export function HabitsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { entries, loading, error, refresh, create, setTodayValue } = useRecurringTasks();
+  const { entries, loading, error, refresh, create } = useRecurringTasks();
   const [creating, setCreating] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; anchor: HabitMenuAnchor } | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const today = todayKey();
   const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
   const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
@@ -33,17 +37,6 @@ export function HabitsScreen() {
     setCreating(false);
   }
 
-  function handleToggle(entry: RecurringDayEntry) {
-    if (entry.task.valueType !== 'boolean' || entry.task.startDate > today) return;
-    const next = entry.value === 1 ? null : 1;
-    setTodayValue(entry.task.id, next).catch((toggleError: unknown) => {
-      Alert.alert(
-        'Could not update this task',
-        toggleError instanceof Error ? toggleError.message : 'Please try again.',
-      );
-    });
-  }
-
   return (
     <ThemedView style={styles.screen}>
       <View style={[styles.body, { paddingTop: topSpace + Spacing.two }]}>
@@ -51,7 +44,7 @@ export function HabitsScreen() {
           Habits
         </ThemedText>
         <ThemedText themeColor="textSecondary">
-          Everyday tasks. Open one to count a date range.
+          Everyday tasks. Use the menu on a habit to edit it or review a date range.
         </ThemedText>
         {error ? (
           <View style={styles.errorRow}>
@@ -89,8 +82,7 @@ export function HabitsScreen() {
               <HabitRow
                 entry={item}
                 today={today}
-                onPress={() => setOpenId(item.task.id)}
-                onToggle={() => handleToggle(item)}
+                onMenu={(anchor) => setMenu({ id: item.task.id, anchor })}
               />
             )}
           />
@@ -110,7 +102,21 @@ export function HabitsScreen() {
       </Pressable>
 
       <RecurringFormModal visible={creating} onClose={() => setCreating(false)} onSubmit={handleCreate} />
-      <RecurringDetailModal taskId={openId} onClose={() => setOpenId(null)} onChanged={handleChanged} />
+      <HabitActionsModal
+        visible={menu != null}
+        anchor={menu?.anchor ?? null}
+        onClose={() => setMenu(null)}
+        onEdit={() => {
+          setEditId(menu?.id ?? null);
+          setMenu(null);
+        }}
+        onReview={() => {
+          setReviewId(menu?.id ?? null);
+          setMenu(null);
+        }}
+      />
+      <HabitEditModal taskId={editId} onClose={() => setEditId(null)} onChanged={handleChanged} />
+      <HabitReviewModal taskId={reviewId} onClose={() => setReviewId(null)} onChanged={handleChanged} />
     </ThemedView>
   );
 }
@@ -118,60 +124,42 @@ export function HabitsScreen() {
 function HabitRow({
   entry,
   today,
-  onPress,
-  onToggle,
+  onMenu,
 }: {
   entry: RecurringDayEntry;
   today: string;
-  onPress: () => void;
-  onToggle: () => void;
+  onMenu: (anchor: HabitMenuAnchor) => void;
 }) {
   const theme = useTheme();
-  const booleanTask = entry.task.valueType === 'boolean';
-  const started = entry.task.startDate <= today;
-  const checked = booleanTask && entry.value === 1;
+  const menuAnchorRef = useRef<View>(null);
 
   return (
     <View style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
-      {booleanTask ? (
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked, disabled: !started }}
-          accessibilityLabel={`${checked ? 'Clear' : 'Tick'} ${entry.task.title} for today`}
-          disabled={!started}
-          onPress={onToggle}
-          hitSlop={4}
-          style={({ pressed }) => [styles.checkHit, pressed && started && styles.pressed]}>
-          <View
-            style={[
-              styles.check,
-              {
-                borderColor: checked ? theme.success : theme.textSecondary,
-                backgroundColor: checked ? theme.success : 'transparent',
-                opacity: started ? 1 : 0.4,
-              },
-            ]}>
-            {checked ? <ThemedText style={[styles.checkMark, { color: theme.onAccent }]}>✓</ThemedText> : null}
-          </View>
-        </Pressable>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${entry.task.title}`}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.rowBody,
-          !booleanTask && styles.bodyInset,
-          pressed && styles.pressed,
-        ]}
-        testID={`habit-item-${entry.task.id}`}>
-        <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {recurringTypeLabel(entry.task.valueType)} · {todayRecurringStatus(entry.task, entry.value, today)}
-        </ThemedText>
-      </Pressable>
-    </View>
-  );
+        <View style={[styles.rowBody, styles.bodyInset]} testID={`habit-item-${entry.task.id}`}>
+          <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {recurringTypeLabel(entry.task.valueType)} · {todayRecurringStatus(entry.task, entry.value, today)}
+          </ThemedText>
+        </View>
+        <View ref={menuAnchorRef} collapsable={false}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`More options for ${entry.task.title}`}
+            onPress={() => {
+              menuAnchorRef.current?.measureInWindow((x, y, width, height) => {
+                onMenu({ x, y, width, height });
+              });
+            }}
+            hitSlop={4}
+            testID={`habit-menu-${entry.task.id}`}
+            style={({ pressed }) => [styles.menuHit, pressed && styles.pressed]}>
+            <ThemedText accessibilityElementsHidden importantForAccessibility="no" style={styles.menuIcon}>
+              ⋮
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    );
 }
 
 const styles = StyleSheet.create({
@@ -213,26 +201,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: Spacing.three,
-    paddingRight: Spacing.two,
-  },
-  checkHit: {
-    width: 52,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  check: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: 700,
   },
   rowBody: {
     flex: 1,
@@ -241,6 +209,17 @@ const styles = StyleSheet.create({
   },
   bodyInset: {
     paddingLeft: Spacing.three,
+  },
+  menuHit: {
+    width: 48,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuIcon: {
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: 700,
   },
   pressed: {
     opacity: 0.7,

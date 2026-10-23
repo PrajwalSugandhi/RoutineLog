@@ -105,10 +105,10 @@ export function formatDayHeading(
     return { title: 'Today', detail: `${weekday}, ${dated}` };
   }
   if (dateKey === addDays(today, -1)) {
-    return { title: 'Yesterday', detail: dated };
+    return { title: 'Yesterday', detail: `${weekday}, ${dated}` };
   }
   if (dateKey === addDays(today, 1)) {
-    return { title: 'Tomorrow', detail: dated };
+    return { title: 'Tomorrow', detail: `${weekday}, ${dated}` };
   }
   return { title: weekday, detail: dated };
 }

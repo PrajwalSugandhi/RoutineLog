@@ -137,6 +137,108 @@ export function summarizeNumericRange(
   return { total, days, tooLong: false };
 }
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
+export type HabitHeatCell = {
+  dateKey: string;
+  amount: number;
+};
+
+export type HabitHeatWeek = {
+  days: HabitHeatCell[];
+  monthLabel: string | null;
+};
+
+export type HabitPatternStats = {
+  streak: number;
+  daysThisMonth: number;
+  percentOver30: number;
+};
+
+export function buildHabitHeatmap(
+  start: string,
+  end: string,
+  amounts: ReadonlyMap<string, number>,
+): HabitHeatWeek[] {
+  if (!isDateKey(start) || !isDateKey(end) || start > end) return [];
+  const gridStart = startOfMonday(start);
+  const weeks: HabitHeatWeek[] = [];
+  let cursor = gridStart;
+  let labeledMonth = '';
+  let labeledYear: number | null = null;
+  const weekLimit = Math.ceil(MAX_RECURRING_RANGE_DAYS / 7) + 1;
+
+  while (cursor <= end && weeks.length < weekLimit) {
+    const cells: HabitHeatCell[] = [];
+    for (let index = 0; index < 7; index += 1) {
+      const dateKey = addDays(cursor, index);
+      if (dateKey > end) break;
+      cells.push({ dateKey, amount: amounts.get(dateKey) ?? 0 });
+    }
+    if (cells.length === 0) break;
+    const first = cells.find((cell) => cell.dateKey >= start);
+    let monthLabel: string | null = null;
+    if (first) {
+      const month = first.dateKey.slice(0, 7);
+      if (month !== labeledMonth) {
+        const date = parseDateKey(first.dateKey);
+        const year = date.getFullYear();
+        const name = MONTH_LABELS[date.getMonth()] ?? '';
+        monthLabel = labeledYear == null || year !== labeledYear ? `${name} ${year}` : name;
+        labeledMonth = month;
+        labeledYear = year;
+      }
+    }
+    weeks.push({ days: cells, monthLabel });
+    cursor = addDays(cursor, 7);
+  }
+
+  return weeks;
+}
+
+function startOfMonday(dateKey: string): string {
+  const day = parseDateKey(dateKey).getDay();
+  const fromMonday = day === 0 ? 6 : day - 1;
+  return addDays(dateKey, -fromMonday);
+}
+
+export function habitPatternStats(
+  amounts: ReadonlyMap<string, number>,
+  habitStart: string,
+  today: string,
+): HabitPatternStats {
+  const counts = (dateKey: string) =>
+    (amounts.get(dateKey) ?? 0) > 0 && dateKey >= habitStart && dateKey <= today;
+
+  let streak = 0;
+  let cursor = today;
+  while (counts(cursor)) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+
+  const monthStart = startOfMonth(today);
+  const recentStart = addDays(today, -29);
+  let daysThisMonth = 0;
+  let recent = 0;
+  for (const [dateKey, amount] of amounts) {
+    if (amount <= 0 || dateKey < habitStart || dateKey > today) continue;
+    if (dateKey >= monthStart) daysThisMonth += 1;
+    if (dateKey >= recentStart) recent += 1;
+  }
+
+  return {
+    streak,
+    daysThisMonth,
+    percentOver30: Math.round((recent / 30) * 100),
+  };
+}
+
+export function habitPatternLabel(stats: HabitPatternStats): string {
+  const days = stats.daysThisMonth === 1 ? 'day' : 'days';
+  return `${stats.streak}-day streak · ${stats.daysThisMonth} ${days} this month · ${stats.percentOver30}% over 30 days`;
+}
+
 export function recurringTypeLabel(valueType: RecurringValueType): string {
   return valueType === 'boolean' ? 'Yes/no' : 'Number';
 }

@@ -100,5 +100,6 @@ export function useRecurringDetail(
     setValue,
     update,
     remove,
+    refresh,
   };
 }

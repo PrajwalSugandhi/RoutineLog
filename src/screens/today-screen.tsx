@@ -14,7 +14,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ViewSwitcher } from '@/components/view-switcher';
 import { WeekStrip } from '@/components/week-strip';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useDayReview } from '@/hooks/use-day-review';
 import { useDayTasks } from '@/hooks/use-day-tasks';
 import { useRecurringDay } from '@/hooks/use-recurring-day';
@@ -47,7 +47,8 @@ export function TodayScreen() {
   const summary = summarizeDay(dayTasks);
   const selectedHeading = formatDayHeading(selectedDate);
 
-  const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
+  const listBottomInset = insets.bottom + Spacing.three + 56 + Spacing.three;
+  const fabBottom = insets.bottom + Spacing.three;
   const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
 
   async function handleSubmit(draft: TaskDraft) {
@@ -183,7 +184,7 @@ export function TodayScreen() {
         ) : (
           <TaskList
             tasks={dayTasks}
-            bottomInset={bottomSpace}
+            bottomInset={listBottomInset}
             onToggle={handleToggle}
             onPress={(task) => setEditor({ mode: 'edit', task })}
             onDelete={handleDelete}
@@ -225,7 +226,7 @@ export function TodayScreen() {
           styles.fab,
           {
             backgroundColor: theme.accent,
-            bottom: bottomSpace,
+            bottom: fabBottom,
             opacity: pressed ? 0.85 : 1,
           },
         ]}>
