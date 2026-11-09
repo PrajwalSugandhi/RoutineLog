@@ -9,6 +9,7 @@ package-lock.json
 # Expo
 .expo/
 dist/
+apks/
 web-build/
 expo-env.d.ts
 
