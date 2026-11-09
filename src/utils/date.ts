@@ -72,6 +72,38 @@ export function normalizeTimeKey(value: string): string | null {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+export const MAX_DURATION_MINUTES = 99 * 60 + 59;
+
+export function parseDurationMinutes(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) {
+    const minutes = Number(trimmed);
+    if (minutes > MAX_DURATION_MINUTES) {
+      throw new Error('Enter a duration up to 99:59.');
+    }
+    return minutes;
+  }
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(trimmed);
+  if (!match) {
+    throw new Error('Enter minutes, or a duration like 1:30.');
+  }
+  const total = Number(match[1]) * 60 + Number(match[2]);
+  if (total > MAX_DURATION_MINUTES) {
+    throw new Error('Enter a duration up to 99:59.');
+  }
+  return total;
+}
+
+export function formatDurationLabel(minutes: number): string {
+  if (minutes <= 0) return '0m';
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours === 0) return `${remainder}m`;
+  if (remainder === 0) return `${hours}h`;
+  return `${hours}h ${remainder}m`;
+}
+
 export function toTimeKey(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');

@@ -1,4 +1,4 @@
-export type RecurringValueType = 'boolean' | 'numeric';
+export type RecurringValueType = 'boolean' | 'numeric' | 'time';
 
 export type RecurringTask = {
   id: string;

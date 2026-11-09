@@ -10,7 +10,7 @@ import type {
   RecurringTaskUpdate,
   RecurringValueType,
 } from '@/types/recurring-task';
-import { isDateKey } from '@/utils/date';
+import { isDateKey, MAX_DURATION_MINUTES } from '@/utils/date';
 import { createId } from '@/utils/ids';
 import { clipRecurringWindow } from '@/utils/recurring';
 
@@ -50,8 +50,8 @@ function requireDate(dateKey: string): string {
 }
 
 function requireValueType(valueType: RecurringValueType): RecurringValueType {
-  if (valueType === 'boolean' || valueType === 'numeric') return valueType;
-  throw new Error('Choose yes/no or a number.');
+  if (valueType === 'boolean' || valueType === 'numeric' || valueType === 'time') return valueType;
+  throw new Error('Choose yes/no, a number, or a time.');
 }
 
 function normalizeLogValue(valueType: RecurringValueType, value: number | null): number | null {
@@ -64,6 +64,12 @@ function normalizeLogValue(valueType: RecurringValueType, value: number | null):
       throw new Error('Tick the day or leave it clear.');
     }
     return 1;
+  }
+  if (valueType === 'time') {
+    if (value > MAX_DURATION_MINUTES) {
+      throw new Error('Enter a duration up to 99:59.');
+    }
+    return value;
   }
   if (value > MAX_NUMERIC_VALUE) {
     throw new Error('Enter a number up to 100000.');

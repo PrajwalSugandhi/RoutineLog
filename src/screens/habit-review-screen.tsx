@@ -1,5 +1,7 @@
 import { HabitHeatmap } from "@/components/habit-heatmap";
+import { HabitTimeChart } from "@/components/habit-time-chart";
 import { NumericDayInput } from "@/components/numeric-day-input";
+import { TimeDayInput } from "@/components/time-day-input";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Spacing } from "@/constants/theme";
@@ -7,6 +9,7 @@ import { useRecurringDetail } from "@/hooks/use-recurring-detail";
 import { useTheme } from "@/hooks/use-theme";
 import {
   formatDayHeading,
+  formatDurationLabel,
   isDateKey,
   parseDateKey,
   toDateKey,
@@ -18,6 +21,7 @@ import {
   habitPatternStats,
   summarizeBooleanRange,
   summarizeNumericRange,
+  summarizeTimeRange,
 } from "@/utils/recurring";
 import { MaterialIcons } from "@expo/vector-icons";
 import DateTimePicker from "@expo/ui/community/datetime-picker";
@@ -77,19 +81,25 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
     for (const log of detail.logs) map.set(log.logDate, log.value);
     return map;
   }, [detail.logs]);
-  const stats = task ? habitPatternStats(amounts, task.startDate, today) : null;
+  const countZero = task?.valueType === "time";
+  const stats = task
+    ? habitPatternStats(amounts, task.startDate, today, { countZero })
+    : null;
   const totalDone = useMemo(() => {
     if (!task) return 0;
     let count = 0;
     for (const [dateKey, amount] of amounts) {
-      if (amount > 0 && dateKey >= task.startDate && dateKey <= today)
-        count += 1;
+      const logged = task.valueType === "time" ? true : amount > 0;
+      if (logged && dateKey >= task.startDate && dateKey <= today) count += 1;
     }
     return count;
   }, [amounts, task, today]);
   const tracked = task ? trackedDays(task.startDate, today) : 0;
   const todayValue = amounts.get(today) ?? null;
-  const todayLogged = todayValue != null && todayValue > 0;
+  const todayLogged =
+    task?.valueType === "time"
+      ? todayValue != null
+      : todayValue != null && todayValue > 0;
   const notStarted = task != null && task.startDate > today;
   const notes = task?.description?.trim() ?? "";
   const patternLogs = detail.logs.map((log) => ({
@@ -109,7 +119,11 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
     task?.valueType === "numeric" && detail.ready
       ? summarizeNumericRange(window, detail.logs)
       : null;
-  const summary = booleanSummary ?? numericSummary;
+  const timeSummary =
+    task?.valueType === "time" && detail.ready
+      ? summarizeTimeRange(window, detail.logs)
+      : null;
+  const summary = booleanSummary ?? numericSummary ?? timeSummary;
   const logValues = new Map(detail.logs.map((log) => [log.logDate, log.value]));
 
   async function saveDay(dateKey: string, value: number | null) {
@@ -158,9 +172,13 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
         ? todayLogged
           ? "Done"
           : "Pending"
-        : todayValue == null
-          ? "Pending"
-          : String(todayValue);
+        : task.valueType === "time"
+          ? todayValue == null
+            ? "Pending"
+            : formatDurationLabel(todayValue)
+          : todayValue == null
+            ? "Pending"
+            : String(todayValue);
 
   return (
     <ThemedView style={styles.screen}>
@@ -226,7 +244,13 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
                       accessibilityLabel={`Count for ${formatDayHeading(today).detail}`}
                       onCommit={(value) => saveDay(today, value)}
                     />
-                  ) : (
+                  ) : task.valueType === "time" && !notStarted ? (
+                    <TimeDayInput
+                      value={todayValue}
+                      accessibilityLabel={`Minutes for ${formatDayHeading(today).detail}`}
+                      onCommit={(value) => saveDay(today, value)}
+                    />
+                  ) : task.valueType === "boolean" ? (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={
@@ -252,7 +276,7 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
                         {todayLogged ? "Done" : "+  Log"}
                       </ThemedText>
                     </Pressable>
-                  )}
+                  ) : null}
                 </View>
                 <View
                   style={[
@@ -290,7 +314,7 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
 
               <View style={styles.section}>
                 <ThemedText style={styles.sectionTitle}>
-                  Habit HeatMap
+                  {task.valueType === "time" ? "Minutes" : "Habit HeatMap"}
                 </ThemedText>
                 <View
                   style={[
@@ -298,12 +322,23 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
                     { backgroundColor: theme.backgroundElement },
                   ]}
                 >
-                  <HabitHeatmap
-                    startDate={task.startDate}
-                    today={today}
-                    logs={patternLogs}
-                    showCaption={false}
-                  />
+                  {task.valueType === "time" ? (
+                    <HabitTimeChart
+                      startDate={task.startDate}
+                      today={today}
+                      logs={patternLogs.map((log) => ({
+                        dateKey: log.dateKey,
+                        minutes: log.amount,
+                      }))}
+                    />
+                  ) : (
+                    <HabitHeatmap
+                      startDate={task.startDate}
+                      today={today}
+                      logs={patternLogs}
+                      showCaption={false}
+                    />
+                  )}
                 </View>
               </View>
 
@@ -431,6 +466,32 @@ export function HabitReviewScreen({ taskId }: HabitReviewScreenProps) {
                             {day.visited ? "Went" : "Didn't go"}
                           </ThemedText>
                         </Pressable>
+                      );
+                    })
+                  : null}
+                {timeSummary && timeSummary.days.length > 0
+                  ? timeSummary.days.map((day) => {
+                      const heading = formatDayHeading(day.dateKey);
+                      return (
+                        <View
+                          key={day.dateKey}
+                          style={[
+                            styles.dayRow,
+                            { backgroundColor: theme.backgroundElement },
+                          ]}
+                        >
+                          <View style={styles.dayCopy}>
+                            <ThemedText>{heading.title}</ThemedText>
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {heading.detail}
+                            </ThemedText>
+                          </View>
+                          <TimeDayInput
+                            value={day.minutes}
+                            accessibilityLabel={`Minutes for ${heading.detail}`}
+                            onCommit={(value) => saveDay(day.dateKey, value)}
+                          />
+                        </View>
                       );
                     })
                   : null}

@@ -1,4 +1,11 @@
-import { addDays, addMonths, isDateKey, parseDateKey, toDateKey } from '@/utils/date';
+import {
+  addDays,
+  addMonths,
+  formatDurationLabel,
+  isDateKey,
+  parseDateKey,
+  toDateKey,
+} from '@/utils/date';
 import type { RecurringLog, RecurringTask, RecurringValueType } from '@/types/recurring-task';
 
 export const MAX_RECURRING_RANGE_DAYS = 3660;
@@ -28,6 +35,16 @@ export type BooleanRangeSummary = {
 export type NumericRangeSummary = {
   total: number;
   days: NumericDayStat[];
+  tooLong: boolean;
+};
+
+export type TimeDayStat = {
+  dateKey: string;
+  minutes: number | null;
+};
+
+export type TimeRangeSummary = {
+  days: TimeDayStat[];
   tooLong: boolean;
 };
 
@@ -137,6 +154,26 @@ export function summarizeNumericRange(
   return { total, days, tooLong: false };
 }
 
+export function summarizeTimeRange(
+  window: RecurringWindow | null,
+  logs: RecurringLog[],
+): TimeRangeSummary {
+  if (!window) return { days: [], tooLong: false };
+  if (recurringRangeTooLong(window.start, window.end)) {
+    return { days: [], tooLong: true };
+  }
+  const values = new Map(
+    logs
+      .filter((log) => log.logDate >= window.start && log.logDate <= window.end)
+      .map((log) => [log.logDate, log.value]),
+  );
+  const days = listDateKeys(window.start, window.end).map((dateKey) => ({
+    dateKey,
+    minutes: values.has(dateKey) ? (values.get(dateKey) ?? null) : null,
+  }));
+  return { days, tooLong: false };
+}
+
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export type HabitHeatCell = {
@@ -211,9 +248,14 @@ export function habitPatternStats(
   amounts: ReadonlyMap<string, number>,
   habitStart: string,
   today: string,
+  options?: { countZero?: boolean },
 ): HabitPatternStats {
-  const counts = (dateKey: string) =>
-    (amounts.get(dateKey) ?? 0) > 0 && dateKey >= habitStart && dateKey <= today;
+  const logged = (dateKey: string, amount: number) => {
+    if (dateKey < habitStart || dateKey > today) return false;
+    if (options?.countZero) return amounts.has(dateKey);
+    return amount > 0;
+  };
+  const counts = (dateKey: string) => logged(dateKey, amounts.get(dateKey) ?? 0);
 
   let streak = 0;
   let cursor = today;
@@ -227,7 +269,7 @@ export function habitPatternStats(
   let daysThisMonth = 0;
   let recent = 0;
   for (const [dateKey, amount] of amounts) {
-    if (amount <= 0 || dateKey < habitStart || dateKey > today) continue;
+    if (!logged(dateKey, amount)) continue;
     if (dateKey >= monthStart) daysThisMonth += 1;
     if (dateKey >= recentStart) recent += 1;
   }
@@ -245,12 +287,15 @@ export function habitPatternLabel(stats: HabitPatternStats): string {
 }
 
 export function recurringTypeLabel(valueType: RecurringValueType): string {
-  return valueType === 'boolean' ? 'Yes/no' : 'Number';
+  if (valueType === 'boolean') return 'Yes/no';
+  if (valueType === 'time') return 'Time';
+  return 'Number';
 }
 
 export function todayRecurringStatus(task: RecurringTask, value: number | null, today: string): string {
   if (task.startDate > today) return 'Starts later';
   if (task.valueType === 'boolean') return value === 1 ? 'Went today' : 'Not yet today';
   if (value == null) return 'Not logged today';
+  if (task.valueType === 'time') return `${formatDurationLabel(value)} today`;
   return `${value} today`;
 }

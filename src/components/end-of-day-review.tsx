@@ -81,21 +81,28 @@ export function EndOfDayReview({
     });
   }, [dateKey, onBegin]);
 
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<void>): Promise<boolean> {
     setBusy(true);
     setActionError(null);
     try {
       await action();
+      return true;
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update this review.');
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  async function finishReview() {
+    const saved = await run(onFinish);
+    if (saved) onClose();
+  }
+
   function finish() {
     if (summary.pending === 0) {
-      void run(onFinish);
+      void finishReview();
       return;
     }
     const countLabel = summary.pending === 1 ? '1 task stays' : `${summary.pending} tasks stay`;
@@ -104,7 +111,7 @@ export function EndOfDayReview({
       `${countLabel} on this day until you complete or move them.`,
       [
         { text: 'Keep reviewing', style: 'cancel' },
-        { text: 'Finish review', onPress: () => void run(onFinish) },
+        { text: 'Finish review', onPress: () => void finishReview() },
       ],
     );
   }
@@ -178,7 +185,7 @@ export function EndOfDayReview({
 
             <RecurringDaySection
               entries={recurringEntries}
-              hint="Tick a yes/no day, or enter how many you did. A blank number counts as zero and does not change this review."
+              hint="Tick a yes/no day, enter a count, or enter how many minutes you spent. A blank number counts as zero. A blank duration stays unlogged. None of these change this review."
               onToggleBoolean={(entry) =>
                 void run(() => onSetRecurring(entry.task.id, entry.value === 1 ? null : 1))
               }

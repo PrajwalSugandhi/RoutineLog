@@ -1,3 +1,3 @@
 export const DATABASE_NAME = "routinelog.db";
 
-export const DATABASE_VERSION = 0;
+export const DATABASE_VERSION = 1;

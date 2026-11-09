@@ -25,6 +25,7 @@ import { todayKey } from '@/utils/date';
 const KINDS: { value: RecurringValueType; label: string }[] = [
   { value: 'boolean', label: 'Yes/no' },
   { value: 'numeric', label: 'Number' },
+  { value: 'time', label: 'Time' },
 ];
 
 export function NewHabitScreen() {
@@ -135,7 +136,9 @@ export function NewHabitScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   {valueType === 'boolean'
                     ? 'Tick each day you do it. A day you skip counts as not visited.'
-                    : 'Enter the day’s count in the review. A blank day counts as zero.'}
+                    : valueType === 'time'
+                      ? 'Enter how many minutes you spent, like 45 or 1:30. A blank day stays unlogged.'
+                      : 'Enter the day’s count in the review. A blank day counts as zero.'}
                 </ThemedText>
               </View>
 

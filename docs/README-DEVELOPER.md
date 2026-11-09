@@ -151,21 +151,22 @@ Keep here does not write a task or a review decision. It only marks the card in 
 
 ## Everyday habits are one row
 
-A habit is not a copy of `tasks` and it is not created inside `rescheduleTask`. `recurring_tasks` holds the habit: `value_type` is `boolean` or `numeric`, chosen at insert and never updated. `recurring_logs` holds one integer per `(recurring_task_id, log_date)`.
+A habit is not a copy of `tasks` and it is not created inside `rescheduleTask`. `recurring_tasks` holds the habit: `value_type` is `boolean`, `numeric`, or `time`, chosen at insert and never updated. `recurring_logs` holds one integer per `(recurring_task_id, log_date)`.
 
 - Boolean stores `1` for a tick and deletes the row when cleared. A missing row counts as not visited.
 - Numeric stores the integer, including `0` when that zero was saved. A missing row counts as 0. Blank input deletes the row.
+- Time stores how many minutes were spent, as an integer. `90` is 1 hour 30 minutes. A missing row means the day was not logged. Clearing the duration deletes the row. The longest value is 99 hours 59 minutes.
 - A log date has to be on or after `start_date`.
 - Range counts use `clipRecurringWindow` in `src/utils/recurring.ts`: from `max(start_date, from)` through `min(to, today)`. Future days are not missed and are not added into a numeric total.
 - Soft delete sets `deleted_at`. Active queries filter that column. Logs stay in the database.
 
-The selected day on Home can tick a boolean habit and save a number in the **Habits** section. The day review can do both as well, under **Every day**. The habit screen can log today and any day in its range. None of those writes change `day_reviews.status` or the week-strip dot. A blank number deletes the log row.
+The selected day on Home can tick a boolean habit, save a number, or save minutes spent in the **Habits** section. The day review can do the same, under **Every day**. The habit screen can log today and any day in its range. A time habit shows minutes against the date instead of the heatmap. None of those writes change `day_reviews.status` or the week-strip dot. A blank number, or a cleared duration, deletes the log row.
 
 ## Writes and the database
 
 `src/database/transaction.ts` runs all writes and the serialized reads through one promise queue, then `db.withTransactionAsync` for multi-statement changes (insert task + history, update date + history, complete + history). Do not call `runInTransaction` from inside another queued function or the queue will deadlock. Repository functions assume they are already inside that queue. Service functions are the ones that enqueue.
 
-`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 0 (`DATABASE_VERSION`). That one statement creates `tasks`, `task_history`, `day_reviews`, `recurring_tasks`, and `recurring_logs`. There is no upgrade from an earlier version. If `user_version` is anything other than 0, the app refuses to open the file.
+`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 1 (`DATABASE_VERSION`). Installed copies are version 0. Opening one creates any missing tables, then rebuilds only `recurring_tasks` when its check still excludes `time`. That rebuild copies every habit row, then replaces the table. It does not rewrite `tasks`, `task_history`, `day_reviews`, or `recurring_logs`. A newer `user_version` is refused and the file is left in place.
 
 Do not put sample tasks in `migrateDatabase`.
 

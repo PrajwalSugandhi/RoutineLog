@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS recurring_tasks (
   id TEXT PRIMARY KEY NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
-  value_type TEXT NOT NULL CHECK (value_type IN ('boolean', 'numeric')),
+  value_type TEXT NOT NULL CHECK (value_type IN ('boolean', 'numeric', 'time')),
   start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -78,17 +78,83 @@ CREATE TABLE IF NOT EXISTS recurring_logs (
 CREATE INDEX IF NOT EXISTS idx_recurring_logs_date ON recurring_logs (log_date);
 `;
 
+const RECURRING_TASKS_NEXT = `
+CREATE TABLE recurring_tasks_next (
+  id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  value_type TEXT NOT NULL CHECK (value_type IN ('boolean', 'numeric', 'time')),
+  start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = versionRow?.user_version ?? 0;
 
-  if (currentVersion !== DATABASE_VERSION) {
+  if (currentVersion > DATABASE_VERSION) {
     throw new Error(
-      `This database is version ${currentVersion}. RoutineLog only opens version ${DATABASE_VERSION} and does not upgrade older copies.`,
+      `This database is version ${currentVersion}. This copy of RoutineLog opens version ${DATABASE_VERSION} and earlier. Update the app before opening a newer database.`,
     );
   }
 
   await db.execAsync(SCHEMA);
+
+  if (currentVersion < 1) {
+    await widenRecurringValueType(db);
+  }
+
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   await db.execAsync('PRAGMA foreign_keys = ON;');
+}
+
+async function widenRecurringValueType(db: SQLiteDatabase): Promise<void> {
+  const definition = await db.getFirstAsync<{ sql: string | null }>(
+    `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'recurring_tasks'`,
+  );
+  if (definition?.sql && !definition.sql.includes("'time'")) {
+    await rebuildRecurringTasks(db);
+  }
+
+  const broken = await db.getAllAsync<{ table: string }>('PRAGMA foreign_key_check');
+  if (broken.length > 0) {
+    throw new Error('The habit upgrade left a broken link between habits and their logs.');
+  }
+}
+
+async function rebuildRecurringTasks(db: SQLiteDatabase): Promise<void> {
+  const before = await db.getFirstAsync<{ total: number }>(
+    'SELECT COUNT(*) AS total FROM recurring_tasks',
+  );
+  const expected = before?.total ?? 0;
+
+  await db.execAsync('PRAGMA foreign_keys = OFF');
+  try {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(RECURRING_TASKS_NEXT);
+      await db.execAsync(`
+        INSERT INTO recurring_tasks_next (
+          id, title, description, value_type, start_date, created_at, updated_at, deleted_at
+        )
+        SELECT id, title, description, value_type, start_date, created_at, updated_at, deleted_at
+        FROM recurring_tasks
+      `);
+      const after = await db.getFirstAsync<{ total: number }>(
+        'SELECT COUNT(*) AS total FROM recurring_tasks_next',
+      );
+      if ((after?.total ?? -1) !== expected) {
+        throw new Error('The habit upgrade did not keep every habit.');
+      }
+      await db.execAsync('DROP TABLE recurring_tasks');
+      await db.execAsync('ALTER TABLE recurring_tasks_next RENAME TO recurring_tasks');
+      await db.execAsync(
+        'CREATE INDEX IF NOT EXISTS idx_recurring_tasks_start_date ON recurring_tasks (start_date)',
+      );
+    });
+  } finally {
+    await db.execAsync('PRAGMA foreign_keys = ON');
+  }
 }

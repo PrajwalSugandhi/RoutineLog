@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { NumericDayInput } from '@/components/numeric-day-input';
+import { TimeDayInput } from '@/components/time-day-input';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -65,7 +66,11 @@ export function RecurringDaySection({
                 </View>
               </Pressable>
             ) : null}
-            <View style={[styles.body, entry.task.valueType === 'numeric' && styles.bodyInset]}>
+            <View
+              style={[
+                styles.body,
+                (entry.task.valueType === 'numeric' || entry.task.valueType === 'time') && styles.bodyInset,
+              ]}>
               <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {recurringTypeLabel(entry.task.valueType)}
@@ -75,6 +80,12 @@ export function RecurringDaySection({
               <NumericDayInput
                 value={entry.value}
                 accessibilityLabel={`Count for ${entry.task.title}`}
+                onCommit={(value) => onCommitNumber(entry.task.id, value)}
+              />
+            ) : entry.task.valueType === 'time' && onCommitNumber ? (
+              <TimeDayInput
+                value={entry.value}
+                accessibilityLabel={`Minutes for ${entry.task.title}`}
                 onCommit={(value) => onCommitNumber(entry.task.id, value)}
               />
             ) : entry.task.valueType === 'numeric' ? (

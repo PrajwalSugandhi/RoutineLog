@@ -51,7 +51,7 @@ const TASK_COLUMNS = `
 `;
 
 function assertValueType(value: string): RecurringValueType {
-  if (value === 'boolean' || value === 'numeric') return value;
+  if (value === 'boolean' || value === 'numeric' || value === 'time') return value;
   throw new Error('A saved everyday task has an invalid type.');
 }
 
