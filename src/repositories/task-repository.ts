@@ -399,15 +399,17 @@ export async function markTaskPending(db: SQLiteDatabase, id: string, timestamp:
   return requireTask(db, id);
 }
 
-export async function archiveTask(db: SQLiteDatabase, id: string, timestamp: string): Promise<void> {
-  const result = await db.runAsync(
-    `UPDATE tasks
-     SET deleted_at = ?, updated_at = ?
-     WHERE id = ? AND deleted_at IS NULL`,
-    timestamp,
-    timestamp,
+export async function deleteTaskRecord(db: SQLiteDatabase, id: string): Promise<void> {
+  const existing = await db.getFirstAsync<{ id: string }>(
+    `SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
+  if (!existing) {
+    throw new Error('This task is no longer available.');
+  }
+  await db.runAsync(`DELETE FROM task_day_checks WHERE task_id = ?`, id);
+  await db.runAsync(`DELETE FROM task_history WHERE task_id = ?`, id);
+  const result = await db.runAsync(`DELETE FROM tasks WHERE id = ? AND deleted_at IS NULL`, id);
   if (result.changes === 0) {
     throw new Error('This task is no longer available.');
   }

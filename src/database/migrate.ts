@@ -123,9 +123,25 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
 
   await addTaskEndDate(db);
   await backfillCompletedDayChecks(db);
+  await removeArchivedRows(db);
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   await db.execAsync('PRAGMA foreign_keys = ON;');
+}
+
+async function removeArchivedRows(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    DELETE FROM task_day_checks
+    WHERE task_id IN (SELECT id FROM tasks WHERE deleted_at IS NOT NULL);
+    DELETE FROM task_history
+    WHERE task_id IN (SELECT id FROM tasks WHERE deleted_at IS NOT NULL);
+    DELETE FROM tasks WHERE deleted_at IS NOT NULL;
+    DELETE FROM recurring_logs
+    WHERE recurring_task_id IN (
+      SELECT id FROM recurring_tasks WHERE deleted_at IS NOT NULL
+    );
+    DELETE FROM recurring_tasks WHERE deleted_at IS NOT NULL;
+  `);
 }
 
 async function addTaskEndDate(db: SQLiteDatabase): Promise<void> {

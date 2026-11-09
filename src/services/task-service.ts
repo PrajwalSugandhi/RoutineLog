@@ -290,16 +290,8 @@ export function extendTask(db: SQLiteDatabase, id: string, endDate: string): Pro
 }
 
 export function deleteTask(db: SQLiteDatabase, id: string): Promise<void> {
-  const timestamp = new Date().toISOString();
   return runInTransaction(db, async (txn) => {
-    const existing = await requireActiveTask(txn, id);
-    await taskRepository.archiveTask(txn, id, timestamp);
-    await taskRepository.insertHistory(txn, {
-      id: createId(),
-      taskId: id,
-      eventType: 'deleted',
-      fromDate: existing.scheduledDate,
-      timestamp,
-    });
+    await requireActiveTask(txn, id);
+    await taskRepository.deleteTaskRecord(txn, id);
   });
 }

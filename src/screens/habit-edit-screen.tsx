@@ -60,7 +60,7 @@ export function HabitEditScreen({ taskId }: HabitEditScreenProps) {
   }
 
   function handleDelete() {
-    Alert.alert('Delete this everyday task?', 'It leaves your list. The saved days stay on this phone, hidden.', [
+    Alert.alert('Delete this everyday task?', 'This removes it and every saved day from this phone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',

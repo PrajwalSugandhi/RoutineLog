@@ -177,11 +177,10 @@ export function updateRecurringTask(
   });
 }
 
-export function archiveRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
-  const timestamp = new Date().toISOString();
+export function deleteRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
   return runInTransaction(db, async (txn) => {
     await requireActiveTask(txn, id);
-    await recurringRepository.archiveRecurringTask(txn, id, timestamp);
+    await recurringRepository.deleteRecurringTask(txn, id);
   });
 }
 

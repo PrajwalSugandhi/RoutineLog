@@ -145,9 +145,9 @@ The counts on the review screen are live: tasks still scheduled that day, plus t
 
 Keep here does not write a task or a review decision. It only marks the card in component state so the choice is visible. Reopening the review shows the task as pending again, which is the stored truth.
 
-### Deletes are archives
+### Deletes remove the stored rows
 
-`deleteTask` sets `deleted_at` and writes a `deleted` history event. Queries that feed the UI filter `deleted_at IS NULL`. History events for archived tasks are excluded by the join in `listActivityEvents`. The row is not removed, so a future archive screen can still read it.
+`deleteTask` deletes that task’s `task_day_checks`, its `task_history`, and the `tasks` row. A span disappears from every day it covered. `deleteRecurringTask` deletes every `recurring_logs` row for that habit, then the `recurring_tasks` row. Children are deleted first so the foreign keys stay valid. Opening the database also removes rows that an older build only marked with `deleted_at`, along with their checks, history, and logs.
 
 ## Everyday habits are one row
 
@@ -158,7 +158,7 @@ A habit is not a copy of `tasks` and it is not created inside `rescheduleTask`. 
 - Time stores how many minutes were spent, as an integer. `90` is 1 hour 30 minutes. A missing row means the day was not logged. Clearing the duration deletes the row. The longest value is 99 hours 59 minutes.
 - A log date has to be on or after `start_date`.
 - Range counts use `clipRecurringWindow` in `src/utils/recurring.ts`: from `max(start_date, from)` through `min(to, today)`. Future days are not missed and are not added into a numeric total.
-- Soft delete sets `deleted_at`. Active queries filter that column. Logs stay in the database.
+- Delete removes the habit and every log. Active queries still filter `deleted_at IS NULL` for rows left by an older build until the next open clears them.
 
 The selected day on Home can tick a boolean habit, save a number, or save minutes spent in the **Habits** section. The day review can do the same, under **Every day**. The habit screen can log today and any day in its range. A time habit shows minutes against the date instead of the heatmap. None of those writes change `day_reviews.status` or the week-strip dot. A blank number, or a cleared duration, deletes the log row.
 
@@ -166,11 +166,11 @@ The selected day on Home can tick a boolean habit, save a number, or save minute
 
 `src/database/transaction.ts` runs all writes and the serialized reads through one promise queue, then `db.withTransactionAsync` for multi-statement changes (insert task + history, update date + history, complete + history). Do not call `runInTransaction` from inside another queued function or the queue will deadlock. Repository functions assume they are already inside that queue. Service functions are the ones that enqueue.
 
-`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 1 (`DATABASE_VERSION`). Installed copies are version 0. Opening one creates any missing tables, then rebuilds only `recurring_tasks` when its check still excludes `time`. That rebuild copies every habit row, then replaces the table. It does not rewrite `task_history`, `day_reviews`, or `recurring_logs`. The same open adds `tasks.end_date` with `ALTER TABLE` when the column is missing, then sets `end_date = scheduled_date` for rows that have none. It checks the task count before and after and stops if a row was lost. It also creates `task_day_checks` if that table is missing, then inserts one check for every day in the span of each task that is already `completed`. Pending tasks are left unchecked. Reopening the database does not duplicate those checks. A database already stamped version 1 by an unpublished build gets that column check too. The version stays 1. A newer `user_version` is refused and the file is left in place.
+`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 1 (`DATABASE_VERSION`). Installed copies are version 0. Opening one creates any missing tables, then rebuilds only `recurring_tasks` when its check still excludes `time`. That rebuild copies every habit row, then replaces the table. It does not rewrite `task_history`, `day_reviews`, or `recurring_logs`. The same open adds `tasks.end_date` with `ALTER TABLE` when the column is missing, then sets `end_date = scheduled_date` for rows that have none. It checks the task count before and after and stops if a row was lost. It also creates `task_day_checks` if that table is missing, then inserts one check for every day in the span of each task that is already `completed`. Pending tasks are left unchecked. Reopening the database does not duplicate those checks. A database already stamped version 1 by an unpublished build gets that column check too. The same open deletes any task or habit that only has `deleted_at` set, after deleting its checks, history, or logs. Running it again deletes nothing further. The version stays 1. A newer `user_version` is refused and the file is left in place.
 
 Do not put sample tasks in `migrateDatabase`.
 
-Foreign keys are enabled per connection after migrate. History rows reference `tasks.id`. Soft delete keeps the parent row, so the foreign key stays valid.
+Foreign keys are enabled per connection after migrate. History rows and day checks reference `tasks.id`. Habit logs reference `recurring_tasks.id`. Delete the child rows before the parent.
 
 ## Where to change things
 
@@ -207,8 +207,8 @@ These were left out on purpose. The data model can take them without a rewrite i
 
 1. **Review reminder.** A local notification should only open the review screen. It must not complete or reschedule tasks. `expo-notifications` has to be checked against SDK 57 before it is added. There is no settings screen yet.
 2. **Weekly or monthly habits.** Everyday habits already exist as one `recurring_tasks` row plus `recurring_logs`. Do not add another schedule by copying a row inside `rescheduleTask`.
-3. **Sync.** The device database is the source of truth. A backend should ship `tasks`, `task_history`, `day_reviews`, `recurring_tasks`, and `recurring_logs`, including soft-deleted rows, or the other device will mis-count past days.
-4. **Archive browser.** Deleted tasks are already retained. They are filtered out of active queries.
+3. **Sync.** The device database is the source of truth. A backend should ship `tasks`, `task_history`, `day_reviews`, `recurring_tasks`, and `recurring_logs`. A deleted task is gone from this phone, so the other device needs that deletion or it will keep the old days.
+4. **Archive browser.** Delete no longer keeps a copy. An archive would need its own table.
 5. **Lint.** Use Node 22 or newer, then `yarn expo lint`, and commit the ESLint config Expo generates.
 
 ## Checks worth repeating

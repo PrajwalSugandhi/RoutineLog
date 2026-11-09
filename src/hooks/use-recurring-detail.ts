@@ -2,7 +2,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  archiveRecurringTask,
+  deleteRecurringTask,
   loadRecurringDetail,
   setRecurringLog,
   updateRecurringTask,
@@ -84,7 +84,7 @@ export function useRecurringDetail(
 
   const remove = useCallback(async () => {
     if (!taskId) return;
-    await archiveRecurringTask(db, taskId);
+    await deleteRecurringTask(db, taskId);
     onChangedRef.current?.();
   }, [db, taskId]);
 

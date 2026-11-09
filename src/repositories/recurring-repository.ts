@@ -188,17 +188,17 @@ export async function updateRecurringTaskDetails(
   return task;
 }
 
-export async function archiveRecurringTask(
-  db: SQLiteDatabase,
-  id: string,
-  timestamp: string,
-): Promise<void> {
+export async function deleteRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
+  const existing = await db.getFirstAsync<{ id: string }>(
+    `SELECT id FROM recurring_tasks WHERE id = ? AND deleted_at IS NULL`,
+    id,
+  );
+  if (!existing) {
+    throw new Error('This everyday task is no longer available.');
+  }
+  await db.runAsync(`DELETE FROM recurring_logs WHERE recurring_task_id = ?`, id);
   const result = await db.runAsync(
-    `UPDATE recurring_tasks
-     SET deleted_at = ?, updated_at = ?
-     WHERE id = ? AND deleted_at IS NULL`,
-    timestamp,
-    timestamp,
+    `DELETE FROM recurring_tasks WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
   if (result.changes === 0) {

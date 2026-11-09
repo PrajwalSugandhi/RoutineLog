@@ -92,7 +92,7 @@ One database file, `routinelog.db`, holds five tables:
 - `recurring_tasks` — an everyday habit, either yes/no or a number
 - `recurring_logs` — the value logged for one habit on one calendar day
 
-Deleting a task archives it. The row and its history remain, and the task disappears from the calendar.
+Deleting a task removes it from every day it covers, along with its checks and history. Deleting an everyday task removes that habit and every saved day.
 
 ## Current scope
 

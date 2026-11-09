@@ -170,7 +170,7 @@ export function HomeScreen() {
   function handleDelete(task: Task) {
     Alert.alert(
       "Delete this task?",
-      "It leaves this day. The archived copy keeps its history.",
+      "This removes it from every day it covers, including its checks and history.",
       [
         { text: "Cancel", style: "cancel" },
         {
