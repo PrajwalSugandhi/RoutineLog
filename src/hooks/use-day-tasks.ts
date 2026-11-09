@@ -2,11 +2,10 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  completeTask,
   createTask,
   deleteTask,
   listTasksForDateRange,
-  reopenTask,
+  toggleTaskDay,
   updateTask,
 } from '@/services/task-service';
 import type { Task, TaskDraft } from '@/types/task';
@@ -20,8 +19,7 @@ type DayTasksState = {
   refresh: () => Promise<void>;
   create: (draft: TaskDraft) => Promise<Task>;
   update: (id: string, draft: TaskDraft) => Promise<Task>;
-  complete: (id: string) => Promise<void>;
-  reopen: (id: string) => Promise<void>;
+  toggleDay: (id: string, dateKey: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 };
 
@@ -68,9 +66,9 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
   }, [rangeKey, refresh]);
 
   const reloadIfCurrent = useCallback(
-    async (scheduledDate: string) => {
+    async (scheduledDate: string, endDate: string) => {
       const { start, end } = rangeRef.current;
-      if (scheduledDate >= start && scheduledDate <= end) {
+      if (scheduledDate <= end && endDate >= start) {
         await refresh();
       }
     },
@@ -80,7 +78,7 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
   const create = useCallback(
     async (draft: TaskDraft) => {
       const task = await createTask(db, draft);
-      await reloadIfCurrent(task.scheduledDate);
+      await reloadIfCurrent(task.scheduledDate, task.endDate);
       return task;
     },
     [db, reloadIfCurrent],
@@ -95,17 +93,9 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
     [db, refresh],
   );
 
-  const complete = useCallback(
-    async (id: string) => {
-      await completeTask(db, id);
-      await refresh();
-    },
-    [db, refresh],
-  );
-
-  const reopen = useCallback(
-    async (id: string) => {
-      await reopenTask(db, id);
+  const toggleDay = useCallback(
+    async (id: string, dateKey: string) => {
+      await toggleTaskDay(db, id, dateKey);
       await refresh();
     },
     [db, refresh],
@@ -129,8 +119,7 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
     refresh,
     create,
     update,
-    complete,
-    reopen,
+    toggleDay,
     remove,
   };
 }

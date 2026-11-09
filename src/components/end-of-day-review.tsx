@@ -38,6 +38,7 @@ type EndOfDayReviewProps = {
   onClose: () => void;
   onBegin: () => Promise<void>;
   onComplete: (taskId: string) => Promise<void>;
+  onExtend: (taskId: string, endDate: string) => Promise<void>;
   onReschedule: (taskId: string, dateKey: string) => Promise<void>;
   onFinish: () => Promise<void>;
   recurringEntries: RecurringDayEntry[];
@@ -55,6 +56,7 @@ export function EndOfDayReview({
   onClose,
   onBegin,
   onComplete,
+  onExtend,
   onReschedule,
   onFinish,
   recurringEntries,
@@ -67,6 +69,7 @@ export function EndOfDayReview({
   const [keptIds, setKeptIds] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
+  const [extendingTaskId, setExtendingTaskId] = useState<string | null>(null);
   const [dateText, setDateText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -74,6 +77,7 @@ export function EndOfDayReview({
     setActionError(null);
     setKeptIds([]);
     setMovingTaskId(null);
+    setExtendingTaskId(null);
     setPickerOpen(false);
     setDateText(addDays(dateKey, 1));
     onBegin().catch((error: unknown) => {
@@ -114,6 +118,24 @@ export function EndOfDayReview({
         { text: 'Finish review', onPress: () => void finishReview() },
       ],
     );
+  }
+
+  async function extendToDate(taskId: string, nextDate: string) {
+    const task = pending.find((item) => item.id === taskId);
+    if (!task) return;
+    if (!isDateKey(nextDate)) {
+      setActionError('Choose a valid date in YYYY-MM-DD format.');
+      return;
+    }
+    if (nextDate <= task.endDate) {
+      setActionError('Choose a date after the current end date.');
+      return;
+    }
+    await run(async () => {
+      await onExtend(taskId, nextDate);
+      setExtendingTaskId(null);
+      setPickerOpen(false);
+    });
   }
 
   async function moveToDate(taskId: string, nextDate: string) {
@@ -195,7 +217,7 @@ export function EndOfDayReview({
             <View style={styles.section}>
               <ThemedText type="smallBold">Tasks to review</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                A task stays on this day unless you mark it done or choose a new date.
+                Done ticks this day. A task with more than one day stays open until every day is ticked. Extend task adds days after the current end.
               </ThemedText>
               {loading ? (
                 <ThemedText themeColor="textSecondary">Loading review...</ThemedText>
@@ -205,6 +227,12 @@ export function EndOfDayReview({
                 pending.map((task) => (
                   <View key={task.id} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
                     <ThemedText>{task.title}</ThemedText>
+                    {task.endDate > task.scheduledDate ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Open through {formatDayHeading(task.endDate).detail}. Done ticks this day
+                        only. Tomorrow or another date moves the whole range.
+                      </ThemedText>
+                    ) : null}
                     {keptIds.includes(task.id) ? (
                       <ThemedText type="small" themeColor="textSecondary">
                         Left on this day. The review stays incomplete until you finish it.
@@ -217,6 +245,16 @@ export function EndOfDayReview({
                         onPress={() => void run(() => onComplete(task.id))}
                       />
                       <ActionButton
+                        label="Extend task"
+                        disabled={busy}
+                        onPress={() => {
+                          setMovingTaskId(null);
+                          setExtendingTaskId(task.id);
+                          setDateText(addDays(task.endDate, 1));
+                          setPickerOpen(Platform.OS !== 'web');
+                        }}
+                      />
+                      <ActionButton
                         label="Tomorrow"
                         disabled={busy}
                         onPress={() => void run(() => onReschedule(task.id, addDays(dateKey, 1)))}
@@ -225,6 +263,7 @@ export function EndOfDayReview({
                         label="Another date"
                         disabled={busy}
                         onPress={() => {
+                          setExtendingTaskId(null);
                           setMovingTaskId(task.id);
                           setDateText(addDays(dateKey, 1));
                           setPickerOpen(Platform.OS !== 'web');
@@ -274,6 +313,46 @@ export function EndOfDayReview({
                         ) : null}
                       </View>
                     ) : null}
+                    {extendingTaskId === task.id ? (
+                      <View style={styles.moveBox}>
+                        <TextInput
+                          value={dateText}
+                          onChangeText={setDateText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor={theme.textSecondary}
+                          style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+                        />
+                        <ActionButton
+                          label="Extend"
+                          disabled={busy}
+                          onPress={() => void extendToDate(task.id, dateText)}
+                        />
+                        {pickerOpen && isDateKey(dateText) ? (
+                          <DateTimePicker
+                            value={parseDateKey(dateText)}
+                            mode="date"
+                            onValueChange={(_event, date) => {
+                              const nextDate = toDateKey(date);
+                              setDateText(nextDate);
+                              if (Platform.OS === 'android') {
+                                setPickerOpen(false);
+                                void extendToDate(task.id, nextDate);
+                              }
+                            }}
+                            onDismiss={() => setPickerOpen(false)}
+                          />
+                        ) : null}
+                        {pickerOpen && Platform.OS === 'ios' ? (
+                          <ActionButton
+                            label="Use this date"
+                            disabled={busy}
+                            onPress={() => void extendToDate(task.id, dateText)}
+                          />
+                        ) : null}
+                      </View>
+                    ) : null}
                   </View>
                 ))
               )}
@@ -298,6 +377,7 @@ export function EndOfDayReview({
                 completed.map((task) => (
                   <ThemedText key={task.id} themeColor="textSecondary">
                     {task.title}
+                    {task.status === 'pending' ? ' · Still open' : ''}
                   </ThemedText>
                 ))
               )}

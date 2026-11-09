@@ -1,13 +1,15 @@
 import type { TaskStatus } from '@/types/task';
-import { toDateKey } from '@/utils/date';
+import { rangeCoversDate, toDateKey } from '@/utils/date';
 
 export type HistoryTask = {
   id: string;
   title: string;
   scheduledDate: string;
+  endDate: string;
   status: TaskStatus;
   postponedCount: number;
   originalScheduledDate: string;
+  checkedDates: readonly string[];
 };
 
 export type ActivityEvent = {
@@ -90,17 +92,25 @@ export function buildDayInspection(
   tasks: readonly HistoryTask[],
   events: readonly ActivityEvent[],
 ): DayInspection {
-  const pending = tasks
-    .filter((task) => task.scheduledDate === dateKey && task.status === 'pending')
-    .sort(byTitle);
   const completed = tasks
-    .filter((task) => wasCompletedForDate(events, task.id, dateKey))
+    .filter(
+      (task) =>
+        task.checkedDates.includes(dateKey) || wasCompletedForDate(events, task.id, dateKey),
+    )
     .sort(byTitle);
   const completedIds = new Set(completed.map((task) => task.id));
+  const pending = tasks
+    .filter(
+      (task) =>
+        !completedIds.has(task.id) &&
+        !task.checkedDates.includes(dateKey) &&
+        rangeCoversDate(task.scheduledDate, task.endDate, dateKey),
+    )
+    .sort(byTitle);
   const movedAway = tasks
     .filter(
       (task) =>
-        task.scheduledDate !== dateKey &&
+        !rangeCoversDate(task.scheduledDate, task.endDate, dateKey) &&
         !completedIds.has(task.id) &&
         events.some(
           (event) =>

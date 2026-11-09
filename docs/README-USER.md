@@ -2,7 +2,7 @@
 
 RoutineLog helps you plan a single day, see what you finished, and decide what to do with anything left over. It is a calendar and a to-do list together. Closing the app does not clear your tasks. They stay on this phone.
 
-Nothing moves itself to the next day. A task stays on the date you gave it until you complete it, delete it, or choose a new date.
+Nothing moves itself to the next day. A task stays on the date or date range you gave it until you complete it, delete it, or choose a new date.
 
 ## Open the app
 
@@ -52,8 +52,9 @@ Tap the **+** button. That opens a new screen for the day you are viewing.
 
 - **Title** is required.
 - **Notes**, **priority**, and **time** are optional.
-- **Date** is the day the task is planned for. You can type `YYYY-MM-DD`, step to the previous or next day, or use **Choose date** on Android.
-- **Save task** writes it immediately and returns to Home on that date.
+- **Date** is the day the task is planned for. You can type `YYYY-MM-DD`, step to the previous or next day, or use **Choose date** on Android. When **Multiple days** is on, this is the first day.
+- **Days** is **One day** or **Multiple days**. Multiple days asks for an **End date**. The same task then appears on every day from the start through the end. Ticking a day records only that day. The task stays open until every day in the range is ticked. A ticked day that is not the last one says **Still open**.
+- **Save task** writes it immediately and returns to Home on the start date.
 
 The task is given its own id. Renaming it does not create a second task.
 
@@ -65,7 +66,7 @@ If you save a task onto a different day from the one you were viewing, Home open
 - Tap the title to edit the task.
 - Tap **Delete** and confirm. Cancel leaves the task in place.
 
-A finished task stays on that day, crossed out, so you can still see that it was part of the plan. Completing it does not move it and does not create a copy.
+A finished task stays on each day in its range, crossed out, so you can still see that it was part of the plan. It finishes when every day in the range is ticked. Ticking again clears that day, and the task opens again if any day is clear. It does not move the task and does not create a copy. Editing a task and choosing **Multiple days** is how a one-day task becomes a longer one.
 
 Priority is shown as Low, Medium, or High. A time, if you set one, is the local time of day.
 
@@ -119,9 +120,10 @@ If you have everyday habits, they appear under **Every day** before the one-off 
 
 For each task still open you get four choices:
 
-- **Done** — mark it complete and keep it on this day.
-- **Tomorrow** — move it to the next calendar day. Reviewing Monday means Tuesday, not “whatever tomorrow is when you happen to open the app.”
-- **Another date** — type a date or pick one, then tap **Move**. The same date is rejected.
+- **Done** — tick this day. A one-day task finishes. A longer task finishes only when every day in its range is ticked. A ticked day that is not the last one says the task is still open.
+- **Extend task** — pick a date after the current end. A one-day task becomes a multi-day task. Days added this way are not ticked, so a task that was already finished opens again.
+- **Tomorrow** — move it to the next calendar day. Reviewing Monday means Tuesday, not “whatever tomorrow is when you happen to open the app.” A task that spans several days keeps the same length, so Monday through Wednesday moved to Tuesday becomes Tuesday through Thursday.
+- **Another date** — type a date or pick one, then tap **Move**. The same date is rejected. A multi-day task keeps its length.
 - **Keep here** — leave it on this day. It stays in the list. The review is still incomplete until you finish.
 
 Completed tasks are in a separate section you can show or hide. Tasks you already moved are listed under **Moved away**.
@@ -157,8 +159,8 @@ The line under the selected date is still the full count, such as “1 of 2 fini
 
 Under the selected date:
 
-- **Still pending** — unfinished tasks that are still scheduled there.
-- **Completed for this day** — tasks finished while they were planned for that day. If you later moved one, the row says where it is now. Reopening a task removes that credit.
+- **Still pending** — unfinished tasks whose range still includes that day. A multi-day task stays pending on each day until you mark it done.
+- **Completed for this day** — tasks finished for that day. A completed multi-day task counts on every day in its range. If you later moved one, the row says where it is now. Reopening a task removes that credit.
 - **Moved away** — tasks that left this day before they were finished. The first planned date stays visible.
 - **Postponed tasks** — the longer list of tasks that have been pushed to a later day, with how many times that happened.
 

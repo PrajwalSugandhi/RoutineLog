@@ -61,8 +61,10 @@ export function TaskForm({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority | null>(null);
   const [dateText, setDateText] = useState("");
+  const [endDateText, setEndDateText] = useState("");
+  const [multiDay, setMultiDay] = useState(false);
   const [dueTimeText, setDueTimeText] = useState("");
-  const [picker, setPicker] = useState<"date" | "time" | null>(null);
+  const [picker, setPicker] = useState<"date" | "end" | "time" | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -73,12 +75,16 @@ export function TaskForm({
       setDescription(session.task.description ?? "");
       setPriority(session.task.priority ?? null);
       setDateText(session.task.scheduledDate);
+      setEndDateText(session.task.endDate);
+      setMultiDay(session.task.endDate > session.task.scheduledDate);
       setDueTimeText(session.task.dueTime ?? "");
     } else {
       setTitle("");
       setDescription("");
       setPriority(null);
       setDateText(session.date);
+      setEndDateText(session.date);
+      setMultiDay(false);
       setDueTimeText("");
     }
     setPicker(null);
@@ -92,13 +98,34 @@ export function TaskForm({
       ? session.task.scheduledDate
       : (session?.date ?? dateText);
   const validDate = isDateKey(dateText) ? dateText : null;
+  const validEndDate = isDateKey(endDateText) ? endDateText : null;
   const heading = validDate ? formatDayHeading(validDate) : null;
+  const endHeading = validEndDate ? formatDayHeading(validEndDate) : null;
+
+  function applyStartDate(nextDate: string) {
+    setDateText(nextDate);
+    if (multiDay && isDateKey(nextDate) && isDateKey(endDateText) && endDateText < nextDate) {
+      setEndDateText(nextDate);
+    }
+    setFormError(null);
+  }
 
   function shiftDate(days: number) {
     const base = validDate ?? (isDateKey(fallbackDate) ? fallbackDate : null);
     if (!base) return;
-    setDateText(addDays(base, days));
+    applyStartDate(addDays(base, days));
+  }
+
+  function enableMultipleDays(enabled: boolean) {
+    setMultiDay(enabled);
+    setPicker(null);
     setFormError(null);
+    if (enabled) {
+      const start = validDate ?? (isDateKey(fallbackDate) ? fallbackDate : null);
+      if (start && (!isDateKey(endDateText) || endDateText <= start)) {
+        setEndDateText(addDays(start, 1));
+      }
+    }
   }
 
   function openDatePicker() {
@@ -110,6 +137,15 @@ export function TaskForm({
   async function handleSave() {
     if (!isDateKey(dateText)) {
       setFormError("Choose a valid date in YYYY-MM-DD format.");
+      return;
+    }
+    const endDate = multiDay ? endDateText : dateText;
+    if (!isDateKey(endDate)) {
+      setFormError("Choose a valid end date in YYYY-MM-DD format.");
+      return;
+    }
+    if (endDate < dateText) {
+      setFormError("The end date has to be on or after the start date.");
       return;
     }
     let dueTime: string | null;
@@ -129,6 +165,7 @@ export function TaskForm({
         title,
         description,
         scheduledDate: dateText,
+        endDate,
         priority,
         dueTime,
       });
@@ -243,7 +280,7 @@ export function TaskForm({
               </View>
             </Field>
 
-            <Field label="Date">
+            <Field label={multiDay ? "Start date" : "Date"}>
               <ThemedText>
                 {heading
                   ? `${heading.title} · ${heading.detail}`
@@ -252,10 +289,7 @@ export function TaskForm({
               {Platform.OS === "web" ? (
                 <TextInput
                   value={dateText}
-                  onChangeText={(value) => {
-                    setDateText(value.trim());
-                    setFormError(null);
-                  }}
+                  onChangeText={(value) => applyStartDate(value.trim())}
                   autoCapitalize="none"
                   autoCorrect={false}
                   placeholder="YYYY-MM-DD"
@@ -286,6 +320,107 @@ export function TaskForm({
                 </Pressable>
               )}
             </Field>
+
+            <Field label="Days">
+              <View style={styles.chips}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !multiDay }}
+                  onPress={() => enableMultipleDays(false)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: multiDay
+                        ? theme.backgroundElement
+                        : theme.accent,
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: multiDay ? theme.text : theme.onAccent }}
+                  >
+                    One day
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: multiDay }}
+                  onPress={() => enableMultipleDays(true)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: multiDay
+                        ? theme.accent
+                        : theme.backgroundElement,
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: multiDay ? theme.onAccent : theme.text }}
+                  >
+                    Multiple days
+                  </ThemedText>
+                </Pressable>
+              </View>
+              {multiDay ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  The task stays open on every day from the start through the
+                  end until you mark it done.
+                </ThemedText>
+              ) : null}
+            </Field>
+
+            {multiDay ? (
+              <Field label="End date">
+                <ThemedText>
+                  {endHeading
+                    ? `${endHeading.title} · ${endHeading.detail}`
+                    : "Choose the last day"}
+                </ThemedText>
+                {Platform.OS === "web" ? (
+                  <TextInput
+                    value={endDateText}
+                    onChangeText={(value) => {
+                      setEndDateText(value.trim());
+                      setFormError(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[
+                      styles.input,
+                      {
+                        color: theme.text,
+                        backgroundColor: theme.backgroundElement,
+                      },
+                    ]}
+                  />
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose end date"
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setPicker("end");
+                      setFormError(null);
+                    }}
+                    style={({ pressed }) => [
+                      styles.input,
+                      styles.dateTrigger,
+                      { backgroundColor: theme.backgroundElement },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <ThemedText>
+                      {endHeading ? endHeading.detail : "Choose end date"}
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </Field>
+            ) : null}
 
             <Field label="Time">
               {Platform.OS === "web" ? (
@@ -338,7 +473,7 @@ export function TaskForm({
                 value={parseDateKey(validDate)}
                 mode="date"
                 onValueChange={(_event, date) => {
-                  setDateText(toDateKey(date));
+                  applyStartDate(toDateKey(date));
                   if (Platform.OS === "android") setPicker(null);
                 }}
                 onDismiss={() => setPicker(null)}
@@ -347,6 +482,23 @@ export function TaskForm({
             {picker === "date" && !validDate ? (
               <ThemedText type="small" style={{ color: theme.danger }}>
                 Fix the date before opening the calendar.
+              </ThemedText>
+            ) : null}
+            {picker === "end" && validEndDate ? (
+              <DateTimePicker
+                value={parseDateKey(validEndDate)}
+                mode="date"
+                onValueChange={(_event, date) => {
+                  setEndDateText(toDateKey(date));
+                  setFormError(null);
+                  if (Platform.OS === "android") setPicker(null);
+                }}
+                onDismiss={() => setPicker(null)}
+              />
+            ) : null}
+            {picker === "end" && !validEndDate ? (
+              <ThemedText type="small" style={{ color: theme.danger }}>
+                Fix the end date before opening the calendar.
               </ThemedText>
             ) : null}
             {picker === "time" && validDate ? (

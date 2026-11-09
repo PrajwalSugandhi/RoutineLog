@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL,
   description TEXT,
   scheduled_date TEXT NOT NULL CHECK (scheduled_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  end_date TEXT NOT NULL CHECK (
+    end_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+    AND end_date >= scheduled_date
+  ),
   status TEXT NOT NULL CHECK (status IN ('pending', 'completed')),
   priority TEXT CHECK (priority IS NULL OR priority IN ('low', 'medium', 'high')),
   due_time TEXT CHECK (due_time IS NULL OR due_time GLOB '[0-9][0-9]:[0-9][0-9]'),
@@ -39,6 +43,16 @@ CREATE TABLE IF NOT EXISTS task_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON task_history (task_id);
+
+CREATE TABLE IF NOT EXISTS task_day_checks (
+  task_id TEXT NOT NULL,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  checked_at TEXT NOT NULL,
+  PRIMARY KEY (task_id, day),
+  FOREIGN KEY (task_id) REFERENCES tasks (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_day_checks_day ON task_day_checks (day);
 
 CREATE TABLE IF NOT EXISTS day_reviews (
   review_date TEXT PRIMARY KEY NOT NULL CHECK (
@@ -107,8 +121,47 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
     await widenRecurringValueType(db);
   }
 
+  await addTaskEndDate(db);
+  await backfillCompletedDayChecks(db);
+
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   await db.execAsync('PRAGMA foreign_keys = ON;');
+}
+
+async function addTaskEndDate(db: SQLiteDatabase): Promise<void> {
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(tasks)');
+  const before = await db.getFirstAsync<{ total: number }>('SELECT COUNT(*) AS total FROM tasks');
+  const expected = before?.total ?? 0;
+
+  if (!columns.some((column) => column.name === 'end_date')) {
+    await db.execAsync('ALTER TABLE tasks ADD COLUMN end_date TEXT');
+  }
+
+  await db.execAsync('UPDATE tasks SET end_date = scheduled_date WHERE end_date IS NULL');
+
+  const after = await db.getFirstAsync<{ total: number }>('SELECT COUNT(*) AS total FROM tasks');
+  const missing = await db.getFirstAsync<{ total: number }>(
+    'SELECT COUNT(*) AS total FROM tasks WHERE end_date IS NULL',
+  );
+  if ((after?.total ?? -1) !== expected || (missing?.total ?? -1) !== 0) {
+    throw new Error('The task upgrade did not keep every task.');
+  }
+}
+
+async function backfillCompletedDayChecks(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    WITH RECURSIVE span(task_id, day, end_date, checked_at) AS (
+      SELECT id, scheduled_date, end_date, COALESCE(completed_at, updated_at)
+      FROM tasks
+      WHERE status = 'completed' AND end_date IS NOT NULL
+      UNION ALL
+      SELECT task_id, date(day, '+1 day'), end_date, checked_at
+      FROM span
+      WHERE day < end_date
+    )
+    INSERT OR IGNORE INTO task_day_checks (task_id, day, checked_at)
+    SELECT task_id, day, checked_at FROM span
+  `);
 }
 
 async function widenRecurringValueType(db: SQLiteDatabase): Promise<void> {

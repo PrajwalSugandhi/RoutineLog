@@ -33,6 +33,30 @@ export function isDateKey(value: string): boolean {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
+export function daysBetween(fromDate: string, toDate: string): number {
+  const from = parseDateKey(fromDate);
+  const to = parseDateKey(toDate);
+  const fromUtc = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const toUtc = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toUtc - fromUtc) / 86_400_000);
+}
+
+export function rangeCoversDate(start: string, end: string, dateKey: string): boolean {
+  const last = end >= start ? end : start;
+  return start <= dateKey && dateKey <= last;
+}
+
+export function eachDateInRange(start: string, end: string): string[] {
+  const last = end >= start ? end : start;
+  const dates: string[] = [];
+  let cursor = start;
+  while (cursor <= last) {
+    dates.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return dates;
+}
+
 export function addDays(dateKey: string, days: number): string {
   const date = parseDateKey(dateKey);
   date.setDate(date.getDate() + days);

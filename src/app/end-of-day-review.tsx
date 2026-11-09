@@ -16,13 +16,14 @@ export default function EndOfDayReviewScreen() {
       dateKey={dateKey}
       status={review.status}
       summary={review.summary}
-      pending={review.tasksOnDate.filter((task) => task.status === 'pending')}
-      completed={review.tasksOnDate.filter((task) => task.status === 'completed')}
+      pending={review.tasksOnDate.filter((task) => !task.checkedDates.includes(dateKey))}
+      completed={review.tasksOnDate.filter((task) => task.checkedDates.includes(dateKey))}
       moved={review.movedTasks}
       loading={review.loading}
       onClose={() => router.back()}
       onBegin={review.begin}
       onComplete={review.complete}
+      onExtend={review.extend}
       onReschedule={review.reschedule}
       onFinish={review.finish}
       recurringEntries={recurring.entries}

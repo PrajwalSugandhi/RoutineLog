@@ -13,6 +13,7 @@ type TaskRow = {
   title: string;
   description: string | null;
   scheduled_date: string;
+  end_date: string | null;
   status: string;
   priority: string | null;
   due_time: string | null;
@@ -38,6 +39,7 @@ export type NewTaskRecord = {
   title: string;
   description: string | null;
   scheduledDate: string;
+  endDate: string;
   priority: TaskPriority | null;
   dueTime: string | null;
   createdAt: string;
@@ -48,6 +50,7 @@ export type TaskUpdateRecord = {
   title: string;
   description: string | null;
   scheduledDate: string;
+  endDate: string;
   priority: TaskPriority | null;
   dueTime: string | null;
   postponedCount: number;
@@ -64,7 +67,7 @@ export type HistoryRecord = {
 };
 
 const TASK_COLUMNS = `
-  id, title, description, scheduled_date, status, priority, due_time,
+  id, title, description, scheduled_date, end_date, status, priority, due_time,
   created_at, updated_at, completed_at, original_scheduled_date,
   postponed_count, deleted_at
 `;
@@ -107,6 +110,7 @@ function mapTask(row: TaskRow): Task {
     title: row.title,
     description: row.description ?? undefined,
     scheduledDate: row.scheduled_date,
+    endDate: row.end_date ?? row.scheduled_date,
     status: assertStatus(row.status),
     priority: assertPriority(row.priority),
     dueTime: row.due_time ?? undefined,
@@ -115,8 +119,40 @@ function mapTask(row: TaskRow): Task {
     completedAt: row.completed_at ?? undefined,
     originalScheduledDate: row.original_scheduled_date,
     postponedCount: row.postponed_count,
+    checkedDates: [],
     deletedAt: row.deleted_at ?? undefined,
   };
+}
+
+async function listCheckedDates(
+  db: SQLiteDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const checks = new Map<string, string[]>();
+  const chunkSize = 80;
+  for (let index = 0; index < taskIds.length; index += chunkSize) {
+    const chunk = taskIds.slice(index, index + chunkSize);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const rows = await db.getAllAsync<{ task_id: string; day: string }>(
+      `SELECT task_id, day FROM task_day_checks WHERE task_id IN (${placeholders}) ORDER BY day ASC`,
+      ...chunk,
+    );
+    for (const row of rows) {
+      const existing = checks.get(row.task_id);
+      if (existing) existing.push(row.day);
+      else checks.set(row.task_id, [row.day]);
+    }
+  }
+  return checks;
+}
+
+async function withCheckedDates(db: SQLiteDatabase, tasks: Task[]): Promise<Task[]> {
+  if (tasks.length === 0) return tasks;
+  const checks = await listCheckedDates(
+    db,
+    tasks.map((task) => task.id),
+  );
+  return tasks.map((task) => ({ ...task, checkedDates: checks.get(task.id) ?? [] }));
 }
 
 function mapHistory(row: HistoryRow): TaskHistoryEvent {
@@ -143,18 +179,19 @@ export async function findTaskById(db: SQLiteDatabase, id: string): Promise<Task
     `SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ?`,
     id,
   );
-  return row ? mapTask(row) : null;
+  return row ? (await withCheckedDates(db, [mapTask(row)]))[0] : null;
 }
 
 export async function listTasksForDate(db: SQLiteDatabase, dateKey: string): Promise<Task[]> {
   const rows = await db.getAllAsync<TaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM tasks
-     WHERE scheduled_date = ? AND deleted_at IS NULL
+     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL
      ORDER BY ${TASK_ORDER}`,
     dateKey,
+    dateKey,
   );
-  return rows.map(mapTask);
+  return withCheckedDates(db, rows.map(mapTask));
 }
 
 export async function listTasksForDateRange(
@@ -165,12 +202,12 @@ export async function listTasksForDateRange(
   const rows = await db.getAllAsync<TaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM tasks
-     WHERE scheduled_date >= ? AND scheduled_date <= ? AND deleted_at IS NULL
+     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL
      ORDER BY scheduled_date ASC, ${TASK_ORDER}`,
-    startDate,
     endDate,
+    startDate,
   );
-  return rows.map(mapTask);
+  return withCheckedDates(db, rows.map(mapTask));
 }
 
 export async function listTasksMovedFromDate(db: SQLiteDatabase, dateKey: string): Promise<Task[]> {
@@ -178,7 +215,7 @@ export async function listTasksMovedFromDate(db: SQLiteDatabase, dateKey: string
     `SELECT ${TASK_COLUMNS}
      FROM tasks
      WHERE deleted_at IS NULL
-       AND scheduled_date != ?
+       AND (scheduled_date > ? OR end_date < ?)
        AND id IN (
          SELECT task_id FROM task_history
          WHERE event_type = 'rescheduled' AND from_date = ?
@@ -186,8 +223,9 @@ export async function listTasksMovedFromDate(db: SQLiteDatabase, dateKey: string
      ORDER BY scheduled_date ASC, ${TASK_ORDER}`,
     dateKey,
     dateKey,
+    dateKey,
   );
-  return rows.map(mapTask);
+  return withCheckedDates(db, rows.map(mapTask));
 }
 
 export async function listTaskHistory(db: SQLiteDatabase, taskId: string): Promise<TaskHistoryEvent[]> {
@@ -205,9 +243,11 @@ export type HistoryTaskRecord = {
   id: string;
   title: string;
   scheduledDate: string;
+  endDate: string;
   status: TaskStatus;
   postponedCount: number;
   originalScheduledDate: string;
+  checkedDates: string[];
 };
 
 export type ActivityEventRecord = {
@@ -224,23 +264,31 @@ export async function listActiveTaskSummaries(db: SQLiteDatabase): Promise<Histo
     id: string;
     title: string;
     scheduled_date: string;
+    end_date: string | null;
     status: string;
     postponed_count: number;
     original_scheduled_date: string;
   }>(
-    `SELECT id, title, scheduled_date, status, postponed_count, original_scheduled_date
+    `SELECT id, title, scheduled_date, end_date, status, postponed_count, original_scheduled_date
      FROM tasks
      WHERE deleted_at IS NULL
      ORDER BY scheduled_date ASC, title ASC`,
   );
-  return rows.map((row) => ({
+  const summaries = rows.map((row) => ({
     id: row.id,
     title: row.title,
     scheduledDate: row.scheduled_date,
+    endDate: row.end_date ?? row.scheduled_date,
     status: assertStatus(row.status),
     postponedCount: row.postponed_count,
     originalScheduledDate: row.original_scheduled_date,
+    checkedDates: [] as string[],
   }));
+  const checks = await listCheckedDates(
+    db,
+    summaries.map((task) => task.id),
+  );
+  return summaries.map((task) => ({ ...task, checkedDates: checks.get(task.id) ?? [] }));
 }
 
 export async function listActivityEvents(db: SQLiteDatabase): Promise<ActivityEventRecord[]> {
@@ -273,13 +321,14 @@ export async function listActivityEvents(db: SQLiteDatabase): Promise<ActivityEv
 export async function insertTask(db: SQLiteDatabase, record: NewTaskRecord): Promise<Task> {
   await db.runAsync(
     `INSERT INTO tasks (
-      id, title, description, scheduled_date, status, priority, due_time,
+      id, title, description, scheduled_date, end_date, status, priority, due_time,
       created_at, updated_at, completed_at, original_scheduled_date, postponed_count, deleted_at
-    ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL, ?, 0, NULL)`,
+    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NULL, ?, 0, NULL)`,
     record.id,
     record.title,
     record.description,
     record.scheduledDate,
+    record.endDate,
     record.priority,
     record.dueTime,
     record.createdAt,
@@ -295,6 +344,7 @@ export async function updateTaskDetails(db: SQLiteDatabase, record: TaskUpdateRe
      SET title = ?,
          description = ?,
          scheduled_date = ?,
+         end_date = ?,
          priority = ?,
          due_time = ?,
          postponed_count = ?,
@@ -303,6 +353,7 @@ export async function updateTaskDetails(db: SQLiteDatabase, record: TaskUpdateRe
     record.title,
     record.description,
     record.scheduledDate,
+    record.endDate,
     record.priority,
     record.dueTime,
     record.postponedCount,
@@ -359,6 +410,44 @@ export async function archiveTask(db: SQLiteDatabase, id: string, timestamp: str
   );
   if (result.changes === 0) {
     throw new Error('This task is no longer available.');
+  }
+}
+
+export async function insertTaskDayCheck(
+  db: SQLiteDatabase,
+  taskId: string,
+  day: string,
+  checkedAt: string,
+): Promise<void> {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO task_day_checks (task_id, day, checked_at) VALUES (?, ?, ?)`,
+    taskId,
+    day,
+    checkedAt,
+  );
+}
+
+export async function deleteTaskDayCheck(
+  db: SQLiteDatabase,
+  taskId: string,
+  day: string,
+): Promise<void> {
+  await db.runAsync(`DELETE FROM task_day_checks WHERE task_id = ? AND day = ?`, taskId, day);
+}
+
+export async function shiftTaskDayChecks(
+  db: SQLiteDatabase,
+  taskId: string,
+  dayShift: (day: string) => string,
+): Promise<void> {
+  const rows = await db.getAllAsync<{ day: string; checked_at: string }>(
+    `SELECT day, checked_at FROM task_day_checks WHERE task_id = ?`,
+    taskId,
+  );
+  if (rows.length === 0) return;
+  await db.runAsync(`DELETE FROM task_day_checks WHERE task_id = ?`, taskId);
+  for (const row of rows) {
+    await insertTaskDayCheck(db, taskId, dayShift(row.day), row.checked_at);
   }
 }
 

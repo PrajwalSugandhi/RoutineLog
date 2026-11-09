@@ -9,6 +9,7 @@ export type Task = {
   title: string;
   description?: string;
   scheduledDate: string;
+  endDate: string;
   status: TaskStatus;
   priority?: TaskPriority;
   dueTime?: string;
@@ -17,6 +18,7 @@ export type Task = {
   completedAt?: string;
   originalScheduledDate: string;
   postponedCount: number;
+  checkedDates: string[];
   deletedAt?: string;
 };
 
@@ -33,6 +35,7 @@ export type TaskDraft = {
   title: string;
   description: string;
   scheduledDate: string;
+  endDate: string;
   priority: TaskPriority | null;
   dueTime: string | null;
 };

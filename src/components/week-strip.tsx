@@ -19,9 +19,10 @@ type WeekStripProps = {
 };
 
 export function summarizeTasksForWeek(
-  tasks: readonly { status: string }[],
+  tasks: readonly { checkedDates: readonly string[] }[],
+  dateKey: string,
 ): WeekDaySummary {
-  const pending = tasks.filter((task) => task.status === 'pending').length;
+  const pending = tasks.filter((task) => !task.checkedDates.includes(dateKey)).length;
   const label =
     tasks.length === 0
       ? 'no tasks'

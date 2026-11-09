@@ -4,9 +4,10 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Task, TaskPriority } from '@/types/task';
-import { formatTimeLabel } from '@/utils/date';
+import { formatDayHeading, formatTimeLabel } from '@/utils/date';
 
 type TaskItemProps = {
+  dateKey: string;
   task: Task;
   onToggle: () => void;
   onPress: () => void;
@@ -19,17 +20,18 @@ const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: 'Low',
 };
 
-export function TaskItem({ task, onToggle, onPress, onDelete }: TaskItemProps) {
+export function TaskItem({ dateKey, task, onToggle, onPress, onDelete }: TaskItemProps) {
   const theme = useTheme();
-  const completed = task.status === 'completed';
+  const dayChecked = task.checkedDates.includes(dateKey);
+  const finished = task.status === 'completed';
   const priorityColor = task.priority ? theme[task.priority] : undefined;
 
   return (
     <View style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
       <Pressable
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: completed }}
-        accessibilityLabel={`${completed ? 'Mark incomplete' : 'Mark complete'}: ${task.title}`}
+        accessibilityState={{ checked: dayChecked }}
+        accessibilityLabel={`${dayChecked ? 'Clear this day' : 'Tick this day'}: ${task.title}`}
         onPress={onToggle}
         hitSlop={4}
         style={({ pressed }) => [styles.checkHit, pressed && styles.pressed]}
@@ -38,11 +40,11 @@ export function TaskItem({ task, onToggle, onPress, onDelete }: TaskItemProps) {
           style={[
             styles.check,
             {
-              borderColor: completed ? theme.success : theme.textSecondary,
-              backgroundColor: completed ? theme.success : 'transparent',
+              borderColor: dayChecked ? theme.success : theme.textSecondary,
+              backgroundColor: dayChecked ? theme.success : 'transparent',
             },
           ]}>
-          {completed ? <ThemedText style={[styles.checkMark, { color: theme.onAccent }]}>✓</ThemedText> : null}
+          {dayChecked ? <ThemedText style={[styles.checkMark, { color: theme.onAccent }]}>✓</ThemedText> : null}
         </View>
       </Pressable>
 
@@ -54,12 +56,22 @@ export function TaskItem({ task, onToggle, onPress, onDelete }: TaskItemProps) {
         testID={`task-item-${task.id}`}>
         <ThemedText
           numberOfLines={2}
-          style={[styles.title, completed && { color: theme.textSecondary, textDecorationLine: 'line-through' }]}>
+          style={[styles.title, finished && { color: theme.textSecondary, textDecorationLine: 'line-through' }]}>
           {task.title}
         </ThemedText>
         {task.description ? (
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
             {task.description}
+          </ThemedText>
+        ) : null}
+        {task.endDate > task.scheduledDate ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            Through {formatDayHeading(task.endDate).detail}
+          </ThemedText>
+        ) : null}
+        {dayChecked && !finished ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Still open
           </ThemedText>
         ) : null}
         {task.dueTime || task.priority ? (

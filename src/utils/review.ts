@@ -25,11 +25,11 @@ export type DayReview = {
 
 export function summarizeReview(
   dateKey: string,
-  tasksOnDate: readonly Pick<Task, 'status'>[],
+  tasksOnDate: readonly Pick<Task, 'checkedDates'>[],
   movedDates: readonly string[],
 ): ReviewSummary {
   const tomorrow = addDays(dateKey, 1);
-  const completed = tasksOnDate.filter((task) => task.status === 'completed').length;
+  const completed = tasksOnDate.filter((task) => task.checkedDates.includes(dateKey)).length;
   const pending = tasksOnDate.length - completed;
   const movedToTomorrow = movedDates.filter((date) => date === tomorrow).length;
 

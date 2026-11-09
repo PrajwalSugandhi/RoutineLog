@@ -7,6 +7,7 @@ import { Spacing } from '@/constants/theme';
 import type { Task } from '@/types/task';
 
 type TaskListProps = {
+  dateKey: string;
   tasks: Task[];
   bottomInset: number;
   onToggle: (task: Task) => void;
@@ -20,6 +21,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
+  dateKey,
   tasks,
   bottomInset,
   onToggle,
@@ -57,6 +59,7 @@ export function TaskList({
       }
       renderItem={({ item }) => (
         <TaskItem
+          dateKey={dateKey}
           task={item}
           onToggle={() => onToggle(item)}
           onPress={() => onPress(item)}

@@ -1,4 +1,5 @@
 import type { Task } from '@/types/task';
+import { eachDateInRange } from '@/utils/date';
 
 export type DaySummary = {
   total: number;
@@ -7,12 +8,16 @@ export type DaySummary = {
   progress: number;
 };
 
-export function summarizeDay(tasks: readonly Task[]): DaySummary {
+export function isDayChecked(task: Pick<Task, 'checkedDates'>, dateKey: string): boolean {
+  return task.checkedDates.includes(dateKey);
+}
+
+export function summarizeDay(tasks: readonly Task[], dateKey?: string): DaySummary {
   const total = tasks.length;
-  const completed = tasks.reduce(
-    (count, task) => count + (task.status === 'completed' ? 1 : 0),
-    0,
-  );
+  const completed = tasks.reduce((count, task) => {
+    const done = dateKey ? isDayChecked(task, dateKey) : task.status === 'completed';
+    return count + (done ? 1 : 0);
+  }, 0);
   const remaining = total - completed;
   return {
     total,
@@ -33,11 +38,13 @@ export function progressLabel(summary: DaySummary): string {
 export function indexTasksByDate(tasks: readonly Task[]): Map<string, Task[]> {
   const tasksByDate = new Map<string, Task[]>();
   for (const task of tasks) {
-    const existing = tasksByDate.get(task.scheduledDate);
-    if (existing) {
-      existing.push(task);
-    } else {
-      tasksByDate.set(task.scheduledDate, [task]);
+    for (const dateKey of eachDateInRange(task.scheduledDate, task.endDate)) {
+      const existing = tasksByDate.get(dateKey);
+      if (existing) {
+        existing.push(task);
+      } else {
+        tasksByDate.set(dateKey, [task]);
+      }
     }
   }
   return tasksByDate;

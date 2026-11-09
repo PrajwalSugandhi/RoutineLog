@@ -62,8 +62,7 @@ export function HomeScreen() {
     error,
     refresh,
     update,
-    complete,
-    reopen,
+    toggleDay,
     remove,
   } = useDayTasks(range.start, range.end);
   const review = useDayReview(selectedDate, refresh);
@@ -139,15 +138,13 @@ export function HomeScreen() {
     if (!editor || editor.mode !== "edit") return;
     const saved = await update(editor.task.id, draft);
     setEditor(null);
-    if (saved.scheduledDate !== selectedDate) {
+    if (selectedDate < saved.scheduledDate || selectedDate > saved.endDate) {
       setSelectedDate(saved.scheduledDate);
     }
   }
 
   function handleToggle(task: Task) {
-    const action =
-      task.status === "completed" ? reopen(task.id) : complete(task.id);
-    action.catch((toggleError: unknown) => {
+    toggleDay(task.id, selectedDate).catch((toggleError: unknown) => {
       Alert.alert(
         "Could not update this task",
         toggleError instanceof Error
@@ -220,7 +217,7 @@ export function HomeScreen() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               summaryForDate={(dateKey) =>
-                summarizeTasksForWeek(tasksByDate.get(dateKey) ?? [])
+                summarizeTasksForWeek(tasksByDate.get(dateKey) ?? [], dateKey)
               }
             />
           </View>
@@ -263,6 +260,7 @@ export function HomeScreen() {
           </View>
         ) : (
           <TaskList
+            dateKey={selectedDate}
             tasks={dayTasks}
             bottomInset={listBottomInset}
             onToggle={handleToggle}

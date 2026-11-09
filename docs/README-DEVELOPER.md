@@ -2,7 +2,7 @@
 
 RoutineLog is an Expo SDK 57 app. Android is the product target. Routes live in `src/app`. Business rules live outside those route files. SQLite is the only store.
 
-Read this before changing task dates, history, or reviews. Those three are easy to corrupt if a calendar day is derived from a UTC timestamp, or if a statistic uses only `tasks.scheduled_date`.
+Read this before changing task dates, history, or reviews. Those three are easy to corrupt if a calendar day is derived from a UTC timestamp, or if a statistic uses only `tasks.scheduled_date` and ignores `tasks.end_date`.
 
 ## Stack
 
@@ -113,9 +113,9 @@ Weeks start on Sunday (`Date#getDay()`). Month grids are 4, 5, or 6 rows and inc
 
 ### One task, one id
 
-Identity is `tasks.id`, a UUID from `src/utils/ids.ts` (`crypto.randomUUID` when it exists). Title is not an id. Reschedule updates `scheduled_date` and inserts one `rescheduled` history row. It does not insert a new task. `original_scheduled_date` is set once at insert and is not part of the update statement.
+Identity is `tasks.id`, a UUID from `src/utils/ids.ts` (`crypto.randomUUID` when it exists). Title is not an id. `scheduled_date` is the first day and `end_date` is the last day. Equal dates are a one-day task. Reschedule updates `scheduled_date`, shifts `end_date` by the same number of days, and inserts one `rescheduled` history row. It does not insert a new task. Changing only `end_date` does not write history and does not increment `postponed_count`. `original_scheduled_date` is set once at insert and is not part of the update statement.
 
-`postponed_count` increments only when the new date is later than the current scheduled date. A move to an earlier date still writes a `rescheduled` event, so “rescheduled N times” on the History screen counts events, while “postponed N times” reads `postponed_count`.
+`postponed_count` increments only when the new start date is later than the current start date. A move to an earlier date still writes a `rescheduled` event, so “rescheduled N times” on the History screen counts events, while “postponed N times” reads `postponed_count`.
 
 ### History is the record of a day
 
@@ -123,15 +123,15 @@ These questions use different data:
 
 | Question                                 | Source                                                                                                                       |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| What is planned on this day right now?   | `tasks.scheduled_date`, `deleted_at IS NULL`                                                                                 |
-| What is still open on this day?          | same, `status = 'pending'`                                                                                                   |
-| What was completed for this planned day? | a `completed` event with `from_date` equal to that day, if a later `reopened` event has not cleared it                       |
+| What is planned on this day right now?   | `scheduled_date <= day <= end_date`, `deleted_at IS NULL`                                                                    |
+| What is still open on this day?          | the span covers that day and `task_day_checks` has no row for it                                                             |
+| What was completed for this planned day? | a row in `task_day_checks` for that day, or a `completed` event with `from_date` equal to that day, if a later `reopened` event has not cleared it |
 | What was checked off today?              | the local calendar day of the latest uncleared `completed` timestamp                                                         |
-| What left this day unfinished?           | a `rescheduled` event with `from_date` equal to that day, task not currently scheduled there, and not completed for that day |
+| What left this day unfinished?           | a `rescheduled` event with `from_date` equal to that day, the span no longer covers that day, and it was not completed for that day |
 
 `buildDayInspection` in `src/utils/history.ts` is the function History must keep using. A day with 1 completion and 1 move is `1 of 2`, not `1 of 1` and not an empty day. Everyday habit logs are not part of that inspection, and they do not change the week-strip dot.
 
-Completed tasks stay on their scheduled date. Completion writes `completed_at` and a history row whose `from_date` is the scheduled date at that moment. It does not change `scheduled_date`.
+A tick writes one `task_day_checks` row for that calendar day. `tasks.status` becomes `completed` only when every day from `scheduled_date` through `end_date` has a check. That write sets `completed_at` and a history row whose `from_date` is the day that completed the span. Clearing a check on a finished task sets `status` back to `pending` and writes `reopened`. Extending `end_date` does not tick the new days and does not increment `postponed_count`. A finished task opens again because those new days have no check.
 
 ### Reviews do not mutate tasks by themselves
 
@@ -141,7 +141,7 @@ Opening the review calls `beginReview`. That inserts `in_progress`, or leaves an
 
 The counts on the review screen are live: tasks still scheduled that day, plus tasks moved away (`listTasksMovedFromDate`). They are not frozen columns on `day_reviews`.
 
-“Tomorrow” in the review is `addDays(reviewDate, 1)`, not “tomorrow relative to the phone’s clock.”
+“Tomorrow” in the review is `addDays(reviewDate, 1)`, not “tomorrow relative to the phone’s clock.” That new date becomes the start, and `end_date` moves by the same number of days.
 
 Keep here does not write a task or a review decision. It only marks the card in component state so the choice is visible. Reopening the review shows the task as pending again, which is the stored truth.
 
@@ -166,7 +166,7 @@ The selected day on Home can tick a boolean habit, save a number, or save minute
 
 `src/database/transaction.ts` runs all writes and the serialized reads through one promise queue, then `db.withTransactionAsync` for multi-statement changes (insert task + history, update date + history, complete + history). Do not call `runInTransaction` from inside another queued function or the queue will deadlock. Repository functions assume they are already inside that queue. Service functions are the ones that enqueue.
 
-`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 1 (`DATABASE_VERSION`). Installed copies are version 0. Opening one creates any missing tables, then rebuilds only `recurring_tasks` when its check still excludes `time`. That rebuild copies every habit row, then replaces the table. It does not rewrite `tasks`, `task_history`, `day_reviews`, or `recurring_logs`. A newer `user_version` is refused and the file is left in place.
+`SQLiteProvider` in `src/database/database-gate.tsx` opens `routinelog.db` and runs `migrateDatabase` before children render. The published schema is version 1 (`DATABASE_VERSION`). Installed copies are version 0. Opening one creates any missing tables, then rebuilds only `recurring_tasks` when its check still excludes `time`. That rebuild copies every habit row, then replaces the table. It does not rewrite `task_history`, `day_reviews`, or `recurring_logs`. The same open adds `tasks.end_date` with `ALTER TABLE` when the column is missing, then sets `end_date = scheduled_date` for rows that have none. It checks the task count before and after and stops if a row was lost. It also creates `task_day_checks` if that table is missing, then inserts one check for every day in the span of each task that is already `completed`. Pending tasks are left unchecked. Reopening the database does not duplicate those checks. A database already stamped version 1 by an unpublished build gets that column check too. The version stays 1. A newer `user_version` is refused and the file is left in place.
 
 Do not put sample tasks in `migrateDatabase`.
 

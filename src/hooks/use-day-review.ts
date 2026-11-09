@@ -2,7 +2,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { beginReview, finishReview, loadReviewSnapshot } from '@/services/review-service';
-import { completeTask, rescheduleTask } from '@/services/task-service';
+import { checkTaskDay, extendTask, rescheduleTask } from '@/services/task-service';
 import type { Task } from '@/types/task';
 import type { ReviewSnapshot } from '@/services/review-service';
 import type { ReviewStatus } from '@/utils/review';
@@ -18,6 +18,7 @@ type DayReviewState = {
   begin: () => Promise<void>;
   finish: () => Promise<void>;
   complete: (taskId: string) => Promise<void>;
+  extend: (taskId: string, endDate: string) => Promise<void>;
   reschedule: (taskId: string, dateKey: string) => Promise<void>;
 };
 
@@ -85,7 +86,15 @@ export function useDayReview(
 
   const complete = useCallback(
     async (taskId: string) => {
-      await completeTask(db, taskId);
+      await checkTaskDay(db, taskId, dateRef.current);
+      await afterTaskChange();
+    },
+    [afterTaskChange, db],
+  );
+
+  const extend = useCallback(
+    async (taskId: string, endDate: string) => {
+      await extendTask(db, taskId, endDate);
       await afterTaskChange();
     },
     [afterTaskChange, db],
@@ -112,6 +121,7 @@ export function useDayReview(
     begin,
     finish,
     complete,
+    extend,
     reschedule,
   };
 }

@@ -32,7 +32,7 @@ export function MonthCalendar({ selectedDate, tasksByDate, onSelectDate }: Month
         <View key={week[0].dateKey} style={styles.weekRow}>
           {week.map((cell) => {
             const tasks = tasksByDate.get(cell.dateKey) ?? [];
-            const pending = tasks.filter((task) => task.status === 'pending').length;
+            const pending = tasks.filter((task) => !task.checkedDates.includes(cell.dateKey)).length;
             const selected = cell.dateKey === selectedDate;
             const isToday = cell.dateKey === today;
             const heading = formatDayHeading(cell.dateKey);

@@ -18,7 +18,7 @@ import { BottomTabInset, Spacing } from "@/constants/theme";
 import { useHistory } from "@/hooks/use-history";
 import { useTheme } from "@/hooks/use-theme";
 import { buildWeek, formatWeekHeading } from "@/utils/calendar";
-import { addDays, formatDayHeading, todayKey } from "@/utils/date";
+import { addDays, formatDayHeading, rangeCoversDate, todayKey } from "@/utils/date";
 import {
   buildDayInspection,
   checkedOffOn,
@@ -221,9 +221,9 @@ export function HistoryScreen() {
             >
               {(task) => (
                 <ThemedText type="small" themeColor="textSecondary">
-                  {task.scheduledDate === selectedDate
+                  {rangeCoversDate(task.scheduledDate, task.endDate, selectedDate)
                     ? "Still on this day"
-                    : `Now on ${formatDayHeading(task.scheduledDate).detail}`}
+                    : `Now on ${spanLabel(task)}`}
                 </ThemedText>
               )}
             </TaskSection>
@@ -234,7 +234,7 @@ export function HistoryScreen() {
             >
               {(task) => (
                 <ThemedText type="small" themeColor="textSecondary">
-                  Now on {formatDayHeading(task.scheduledDate).detail}
+                  Now on {spanLabel(task)}
                   {task.originalScheduledDate !== task.scheduledDate
                     ? ` · first planned ${formatDayHeading(task.originalScheduledDate).detail}`
                     : ""}
@@ -270,7 +270,7 @@ export function HistoryScreen() {
                     <ThemedText type="small" themeColor="textSecondary">
                       First planned{" "}
                       {formatDayHeading(task.originalScheduledDate).detail} ·
-                      now {formatDayHeading(task.scheduledDate).detail}
+                      now {spanLabel(task)}
                     </ThemedText>
                   </View>
                 ))
@@ -281,6 +281,13 @@ export function HistoryScreen() {
       </ScrollView>
     </ThemedView>
   );
+}
+
+function spanLabel(task: HistoryTask): string {
+  if (task.endDate > task.scheduledDate) {
+    return `${formatDayHeading(task.scheduledDate).detail} through ${formatDayHeading(task.endDate).detail}`;
+  }
+  return formatDayHeading(task.scheduledDate).detail;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
