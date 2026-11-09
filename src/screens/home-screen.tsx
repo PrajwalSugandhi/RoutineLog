@@ -63,6 +63,7 @@ export function HomeScreen() {
     refresh,
     update,
     toggleDay,
+    hide,
     remove,
   } = useDayTasks(range.start, range.end);
   const review = useDayReview(selectedDate, refresh);
@@ -167,6 +168,27 @@ export function HomeScreen() {
     });
   }
 
+  function handleHide(task: Task) {
+    Alert.alert(
+      "Hide this task?",
+      "It leaves every day it covers until you unhide it. Nothing is deleted.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Hide",
+          onPress: () => {
+            hide(task.id).catch((hideError: unknown) => {
+              Alert.alert(
+                "Could not hide this task",
+                hideError instanceof Error ? hideError.message : "Please try again.",
+              );
+            });
+          },
+        },
+      ],
+    );
+  }
+
   function handleDelete(task: Task) {
     Alert.alert(
       "Delete this task?",
@@ -208,6 +230,7 @@ export function HomeScreen() {
               params: { date: selectedDate },
             })
           }
+          onHidden={() => router.push("/hidden")}
           onToday={showingToday ? undefined : () => setSelectedDate(todayKey())}
           trailingInset={0}
         />
@@ -265,6 +288,7 @@ export function HomeScreen() {
             bottomInset={listBottomInset}
             onToggle={handleToggle}
             onPress={(task) => setEditor({ mode: "edit", task })}
+            onHide={handleHide}
             onDelete={handleDelete}
             onAdd={openNewTask}
             centerEmpty={showFreeDay}

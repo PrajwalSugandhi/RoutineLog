@@ -177,6 +177,25 @@ export function updateRecurringTask(
   });
 }
 
+export function listHiddenRecurringTasks(db: SQLiteDatabase): Promise<{ id: string; title: string }[]> {
+  return runSerialized(() => recurringRepository.listHiddenRecurringTasks(db));
+}
+
+export function hideRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  return runInTransaction(db, async (txn) => {
+    await requireActiveTask(txn, id);
+    await recurringRepository.setRecurringTaskHidden(txn, id, timestamp, timestamp);
+  });
+}
+
+export function unhideRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  return runInTransaction(db, async (txn) => {
+    await recurringRepository.setRecurringTaskHidden(txn, id, null, timestamp);
+  });
+}
+
 export function deleteRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {
   return runInTransaction(db, async (txn) => {
     await requireActiveTask(txn, id);

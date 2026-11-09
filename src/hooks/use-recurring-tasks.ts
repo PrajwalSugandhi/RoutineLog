@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 
 import {
   createRecurringTask,
+  deleteRecurringTask,
+  hideRecurringTask,
   listRecurringTasksWithLog,
   setRecurringLog,
 } from '@/services/recurring-service';
@@ -53,6 +55,22 @@ export function useRecurringTasks() {
     [db, refresh],
   );
 
+  const hide = useCallback(
+    async (taskId: string) => {
+      await hideRecurringTask(db, taskId);
+      await refresh();
+    },
+    [db, refresh],
+  );
+
+  const remove = useCallback(
+    async (taskId: string) => {
+      await deleteRecurringTask(db, taskId);
+      await refresh();
+    },
+    [db, refresh],
+  );
+
   const setTodayValue = useCallback(
     async (taskId: string, value: number | null) => {
       await setRecurringLog(db, taskId, todayKey(), value);
@@ -67,6 +85,8 @@ export function useRecurringTasks() {
     error,
     refresh,
     create,
+    hide,
+    remove,
     setTodayValue,
   };
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createTask,
   deleteTask,
+  hideTask,
   listTasksForDateRange,
   toggleTaskDay,
   updateTask,
@@ -20,6 +21,7 @@ type DayTasksState = {
   create: (draft: TaskDraft) => Promise<Task>;
   update: (id: string, draft: TaskDraft) => Promise<Task>;
   toggleDay: (id: string, dateKey: string) => Promise<void>;
+  hide: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 };
 
@@ -101,6 +103,14 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
     [db, refresh],
   );
 
+  const hide = useCallback(
+    async (id: string) => {
+      await hideTask(db, id);
+      await refresh();
+    },
+    [db, refresh],
+  );
+
   const remove = useCallback(
     async (id: string) => {
       await deleteTask(db, id);
@@ -120,6 +130,7 @@ export function useDayTasks(startDate: string, endDate: string): DayTasksState {
     create,
     update,
     toggleDay,
+    hide,
     remove,
   };
 }

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { RowActionSheet } from '@/components/row-action-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -11,6 +12,7 @@ type TaskItemProps = {
   task: Task;
   onToggle: () => void;
   onPress: () => void;
+  onHide: () => void;
   onDelete: () => void;
 };
 
@@ -20,7 +22,7 @@ const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: 'Low',
 };
 
-export function TaskItem({ dateKey, task, onToggle, onPress, onDelete }: TaskItemProps) {
+export function TaskItem({ dateKey, task, onToggle, onPress, onHide, onDelete }: TaskItemProps) {
   const theme = useTheme();
   const dayChecked = task.checkedDates.includes(dateKey);
   const finished = task.status === 'completed';
@@ -90,17 +92,7 @@ export function TaskItem({ dateKey, task, onToggle, onPress, onDelete }: TaskIte
         ) : null}
       </Pressable>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Delete ${task.title}`}
-        accessibilityHint="Asks for confirmation before removing the task"
-        onPress={onDelete}
-        hitSlop={4}
-        style={({ pressed }) => [styles.deleteHit, pressed && styles.pressed]}>
-        <ThemedText type="smallBold" style={{ color: theme.danger }}>
-          Delete
-        </ThemedText>
-      </Pressable>
+      <RowActionSheet name={task.title} onHide={onHide} onDelete={onDelete} />
     </View>
   );
 }
@@ -144,13 +136,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-  },
-  deleteHit: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.two,
   },
   pressed: {
     opacity: 0.7,

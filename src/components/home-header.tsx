@@ -1,14 +1,20 @@
-import { useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View, type GestureResponderHandlers } from 'react-native';
+import { useRef, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  View,
+  type GestureResponderHandlers,
+} from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import type { CalendarView } from '@/utils/calendar';
+import { ThemedText } from "@/components/themed-text";
+import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import type { CalendarView } from "@/utils/calendar";
 
 const VIEWS: { value: CalendarView; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
 ];
 
 type HomeHeaderProps = {
@@ -20,11 +26,12 @@ type HomeHeaderProps = {
   swipeHandlers: GestureResponderHandlers;
   onChangeView: (view: CalendarView) => void;
   onReview: () => void;
+  onHidden: () => void;
   onToday?: () => void;
   trailingInset?: number;
 };
 
-type MenuKind = 'view' | 'more';
+type MenuKind = "view" | "more";
 
 export function HomeHeader({
   title,
@@ -35,6 +42,7 @@ export function HomeHeader({
   swipeHandlers,
   onChangeView,
   onReview,
+  onHidden,
   onToday,
   trailingInset = 0,
 }: HomeHeaderProps) {
@@ -42,7 +50,8 @@ export function HomeHeader({
   const actionsRef = useRef<View>(null);
   const [menu, setMenu] = useState<MenuKind | null>(null);
   const [menuTop, setMenuTop] = useState(0);
-  const viewLabel = VIEWS.find((option) => option.value === view)?.label ?? 'Week';
+  const viewLabel =
+    VIEWS.find((option) => option.value === view)?.label ?? "Week";
 
   function openMenu(next: MenuKind) {
     actionsRef.current?.measureInWindow((_x, y, _width, height) => {
@@ -57,12 +66,15 @@ export function HomeHeader({
   }
 
   return (
-    <View style={[styles.row, trailingInset > 0 && { paddingRight: trailingInset }]}>
+    <View
+      style={[styles.row, trailingInset > 0 && { paddingRight: trailingInset }]}
+    >
       <View
         accessibilityRole="header"
         accessibilityHint={swipeHint}
         style={styles.titleBlock}
-        {...swipeHandlers}>
+        {...swipeHandlers}
+      >
         <ThemedText numberOfLines={1} style={styles.title}>
           {title}
         </ThemedText>
@@ -78,17 +90,25 @@ export function HomeHeader({
           accessibilityRole="button"
           accessibilityLabel={`Change view, ${viewLabel}`}
           accessibilityHint="Opens week and month"
-          onPress={() => openMenu('view')}
+          onPress={() => openMenu("view")}
           hitSlop={4}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed && styles.pressed,
+          ]}
+        >
           <ViewIcon view={view} color={theme.text} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="More options"
-          onPress={() => openMenu('more')}
+          onPress={() => openMenu("more")}
           hitSlop={4}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed && styles.pressed,
+          ]}
+        >
           <View style={styles.dots}>
             <Dot color={theme.text} />
             <Dot color={theme.text} />
@@ -97,9 +117,18 @@ export function HomeHeader({
         </Pressable>
       </View>
 
-      <Modal visible={menu !== null} transparent animationType="fade" onRequestClose={() => setMenu(null)}>
+      <Modal
+        visible={menu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenu(null)}
+      >
         <View style={styles.overlay}>
-          <Pressable accessibilityLabel="Close menu" style={styles.backdrop} onPress={() => setMenu(null)} />
+          <Pressable
+            accessibilityLabel="Close menu"
+            style={styles.backdrop}
+            onPress={() => setMenu(null)}
+          />
           <View
             onStartShouldSetResponder={() => true}
             style={[
@@ -109,8 +138,9 @@ export function HomeHeader({
                 backgroundColor: theme.backgroundElement,
                 borderColor: theme.border,
               },
-            ]}>
-            {menu === 'view'
+            ]}
+          >
+            {menu === "view"
               ? VIEWS.map((option) => (
                   <MenuRow
                     key={option.value}
@@ -120,14 +150,23 @@ export function HomeHeader({
                   />
                 ))
               : null}
-            {menu === 'more' ? (
+            {menu === "more" ? (
               <>
                 <MenuRow
                   label="Review this day"
                   detail={reviewDetail}
                   onPress={() => choose(onReview)}
                 />
-                {onToday ? <MenuRow label="Go to today" onPress={() => choose(onToday)} /> : null}
+                <MenuRow
+                  label="Hidden tasks"
+                  onPress={() => choose(onHidden)}
+                />
+                {onToday ? (
+                  <MenuRow
+                    label="Go to today"
+                    onPress={() => choose(onToday)}
+                  />
+                ) : null}
               </>
             ) : null}
           </View>
@@ -155,7 +194,8 @@ function MenuRow({
       accessibilityRole="button"
       accessibilityState={{ selected: Boolean(selected) }}
       onPress={onPress}
-      style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
+      style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+    >
       <View style={styles.menuCopy}>
         <ThemedText type="smallBold">{label}</ThemedText>
         {detail ? (
@@ -164,7 +204,9 @@ function MenuRow({
           </ThemedText>
         ) : null}
       </View>
-      {selected ? <ThemedText style={{ color: theme.accent }}>✓</ThemedText> : null}
+      {selected ? (
+        <ThemedText style={{ color: theme.accent }}>✓</ThemedText>
+      ) : null}
     </Pressable>
   );
 }
@@ -174,7 +216,7 @@ function Dot({ color }: { color: string }) {
 }
 
 function ViewIcon({ view, color }: { view: CalendarView; color: string }) {
-  if (view === 'day') {
+  if (view === "day") {
     return (
       <View style={styles.listIcon}>
         <View style={[styles.listLine, { backgroundColor: color }]} />
@@ -184,11 +226,14 @@ function ViewIcon({ view, color }: { view: CalendarView; color: string }) {
     );
   }
 
-  if (view === 'month') {
+  if (view === "month") {
     return (
       <View style={styles.gridIcon}>
         {Array.from({ length: 9 }, (_, index) => (
-          <View key={index} style={[styles.gridDot, { backgroundColor: color }]} />
+          <View
+            key={index}
+            style={[styles.gridDot, { backgroundColor: color }]}
+          />
         ))}
       </View>
     );
@@ -203,14 +248,14 @@ function ViewIcon({ view, color }: { view: CalendarView; color: string }) {
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.two,
   },
   titleBlock: {
     flex: 1,
     gap: Spacing.half,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 44,
   },
   title: {
@@ -219,14 +264,14 @@ const styles = StyleSheet.create({
     fontWeight: 600,
   },
   actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   iconButton: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pressed: {
     opacity: 0.55,
@@ -250,8 +295,8 @@ const styles = StyleSheet.create({
   gridIcon: {
     width: 18,
     height: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 3,
   },
   gridDot: {
@@ -264,7 +309,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderWidth: 1.5,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   calendarBand: {
     height: 6,
@@ -276,7 +321,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   menu: {
-    position: 'absolute',
+    position: "absolute",
     right: Spacing.three,
     minWidth: 220,
     maxWidth: 300,
@@ -284,7 +329,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: Spacing.one,
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: "#000000",
     shadowOpacity: 0.22,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
@@ -293,8 +338,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.three,
   },
   menuCopy: {

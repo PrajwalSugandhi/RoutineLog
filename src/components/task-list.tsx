@@ -12,6 +12,7 @@ type TaskListProps = {
   bottomInset: number;
   onToggle: (task: Task) => void;
   onPress: (task: Task) => void;
+  onHide: (task: Task) => void;
   onDelete: (task: Task) => void;
   onAdd: () => void;
   header?: ReactElement | null;
@@ -26,6 +27,7 @@ export function TaskList({
   bottomInset,
   onToggle,
   onPress,
+  onHide,
   onDelete,
   onAdd,
   header,
@@ -63,6 +65,7 @@ export function TaskList({
           task={item}
           onToggle={() => onToggle(item)}
           onPress={() => onPress(item)}
+          onHide={() => onHide(item)}
           onDelete={() => onDelete(item)}
         />
       )}

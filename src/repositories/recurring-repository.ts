@@ -93,7 +93,7 @@ export async function listActiveRecurringTasks(db: SQLiteDatabase): Promise<Recu
   const rows = await db.getAllAsync<RecurringTaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM recurring_tasks
-     WHERE deleted_at IS NULL
+     WHERE deleted_at IS NULL AND hidden_at IS NULL
      ORDER BY title COLLATE NOCASE ASC, created_at ASC`,
   );
   return rows.map(mapTask);
@@ -106,7 +106,7 @@ export async function listRecurringTasksActiveOnDate(
   const rows = await db.getAllAsync<RecurringTaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM recurring_tasks
-     WHERE deleted_at IS NULL AND start_date <= ?
+     WHERE deleted_at IS NULL AND hidden_at IS NULL AND start_date <= ?
      ORDER BY title COLLATE NOCASE ASC, created_at ASC`,
     dateKey,
   );
@@ -186,6 +186,35 @@ export async function updateRecurringTaskDetails(
     throw new Error('This everyday task is no longer available.');
   }
   return task;
+}
+
+export async function listHiddenRecurringTasks(
+  db: SQLiteDatabase,
+): Promise<{ id: string; title: string }[]> {
+  return db.getAllAsync<{ id: string; title: string }>(
+    `SELECT id, title FROM recurring_tasks
+     WHERE deleted_at IS NULL AND hidden_at IS NOT NULL
+     ORDER BY title COLLATE NOCASE ASC`,
+  );
+}
+
+export async function setRecurringTaskHidden(
+  db: SQLiteDatabase,
+  id: string,
+  hiddenAt: string | null,
+  updatedAt: string,
+): Promise<void> {
+  const result = await db.runAsync(
+    `UPDATE recurring_tasks
+     SET hidden_at = ?, updated_at = ?
+     WHERE id = ? AND deleted_at IS NULL`,
+    hiddenAt,
+    updatedAt,
+    id,
+  );
+  if (result.changes === 0) {
+    throw new Error('This everyday task is no longer available.');
+  }
 }
 
 export async function deleteRecurringTask(db: SQLiteDatabase, id: string): Promise<void> {

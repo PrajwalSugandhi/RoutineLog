@@ -289,6 +289,25 @@ export function extendTask(db: SQLiteDatabase, id: string, endDate: string): Pro
   });
 }
 
+export function listHiddenTasks(db: SQLiteDatabase): Promise<{ id: string; title: string }[]> {
+  return runSerialized(() => taskRepository.listHiddenTasks(db));
+}
+
+export function hideTask(db: SQLiteDatabase, id: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  return runInTransaction(db, async (txn) => {
+    await requireActiveTask(txn, id);
+    await taskRepository.setTaskHidden(txn, id, timestamp, timestamp);
+  });
+}
+
+export function unhideTask(db: SQLiteDatabase, id: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  return runInTransaction(db, async (txn) => {
+    await taskRepository.setTaskHidden(txn, id, null, timestamp);
+  });
+}
+
 export function deleteTask(db: SQLiteDatabase, id: string): Promise<void> {
   return runInTransaction(db, async (txn) => {
     await requireActiveTask(txn, id);

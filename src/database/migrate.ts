@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     original_scheduled_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
   ),
   postponed_count INTEGER NOT NULL DEFAULT 0 CHECK (postponed_count >= 0),
-  deleted_at TEXT
+  deleted_at TEXT,
+  hidden_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_scheduled_date ON tasks (scheduled_date);
@@ -74,7 +75,8 @@ CREATE TABLE IF NOT EXISTS recurring_tasks (
   start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  deleted_at TEXT
+  deleted_at TEXT,
+  hidden_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_recurring_tasks_start_date ON recurring_tasks (start_date);
@@ -124,6 +126,8 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
   await addTaskEndDate(db);
   await backfillCompletedDayChecks(db);
   await removeArchivedRows(db);
+  await addHiddenAt(db, 'tasks');
+  await addHiddenAt(db, 'recurring_tasks');
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   await db.execAsync('PRAGMA foreign_keys = ON;');
@@ -142,6 +146,19 @@ async function removeArchivedRows(db: SQLiteDatabase): Promise<void> {
     );
     DELETE FROM recurring_tasks WHERE deleted_at IS NOT NULL;
   `);
+}
+
+async function addHiddenAt(db: SQLiteDatabase, table: 'tasks' | 'recurring_tasks'): Promise<void> {
+  const columns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+  if (columns.some((column) => column.name === 'hidden_at')) return;
+
+  const before = await db.getFirstAsync<{ total: number }>(`SELECT COUNT(*) AS total FROM ${table}`);
+  const expected = before?.total ?? 0;
+  await db.execAsync(`ALTER TABLE ${table} ADD COLUMN hidden_at TEXT`);
+  const after = await db.getFirstAsync<{ total: number }>(`SELECT COUNT(*) AS total FROM ${table}`);
+  if ((after?.total ?? -1) !== expected) {
+    throw new Error('The hide upgrade did not keep every saved row.');
+  }
 }
 
 async function addTaskEndDate(db: SQLiteDatabase): Promise<void> {

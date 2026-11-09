@@ -186,7 +186,7 @@ export async function listTasksForDate(db: SQLiteDatabase, dateKey: string): Pro
   const rows = await db.getAllAsync<TaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM tasks
-     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL
+     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL AND hidden_at IS NULL
      ORDER BY ${TASK_ORDER}`,
     dateKey,
     dateKey,
@@ -202,7 +202,7 @@ export async function listTasksForDateRange(
   const rows = await db.getAllAsync<TaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM tasks
-     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL
+     WHERE scheduled_date <= ? AND end_date >= ? AND deleted_at IS NULL AND hidden_at IS NULL
      ORDER BY scheduled_date ASC, ${TASK_ORDER}`,
     endDate,
     startDate,
@@ -214,7 +214,7 @@ export async function listTasksMovedFromDate(db: SQLiteDatabase, dateKey: string
   const rows = await db.getAllAsync<TaskRow>(
     `SELECT ${TASK_COLUMNS}
      FROM tasks
-     WHERE deleted_at IS NULL
+     WHERE deleted_at IS NULL AND hidden_at IS NULL
        AND (scheduled_date > ? OR end_date < ?)
        AND id IN (
          SELECT task_id FROM task_history
@@ -271,7 +271,7 @@ export async function listActiveTaskSummaries(db: SQLiteDatabase): Promise<Histo
   }>(
     `SELECT id, title, scheduled_date, end_date, status, postponed_count, original_scheduled_date
      FROM tasks
-     WHERE deleted_at IS NULL
+     WHERE deleted_at IS NULL AND hidden_at IS NULL
      ORDER BY scheduled_date ASC, title ASC`,
   );
   const summaries = rows.map((row) => ({
@@ -296,7 +296,7 @@ export async function listActivityEvents(db: SQLiteDatabase): Promise<ActivityEv
     `SELECT h.id, h.task_id, h.event_type, h.from_date, h.to_date, h.timestamp
      FROM task_history h
      INNER JOIN tasks t ON t.id = h.task_id
-     WHERE t.deleted_at IS NULL
+     WHERE t.deleted_at IS NULL AND t.hidden_at IS NULL
        AND h.event_type IN ('completed', 'reopened', 'rescheduled')
      ORDER BY h.timestamp ASC, h.rowid ASC`,
   );
@@ -397,6 +397,33 @@ export async function markTaskPending(db: SQLiteDatabase, id: string, timestamp:
     throw new Error('This task is no longer available.');
   }
   return requireTask(db, id);
+}
+
+export async function listHiddenTasks(db: SQLiteDatabase): Promise<{ id: string; title: string }[]> {
+  return db.getAllAsync<{ id: string; title: string }>(
+    `SELECT id, title FROM tasks
+     WHERE deleted_at IS NULL AND hidden_at IS NOT NULL
+     ORDER BY title COLLATE NOCASE ASC`,
+  );
+}
+
+export async function setTaskHidden(
+  db: SQLiteDatabase,
+  id: string,
+  hiddenAt: string | null,
+  updatedAt: string,
+): Promise<void> {
+  const result = await db.runAsync(
+    `UPDATE tasks
+     SET hidden_at = ?, updated_at = ?
+     WHERE id = ? AND deleted_at IS NULL`,
+    hiddenAt,
+    updatedAt,
+    id,
+  );
+  if (result.changes === 0) {
+    throw new Error('This task is no longer available.');
+  }
 }
 
 export async function deleteTaskRecord(db: SQLiteDatabase, id: string): Promise<void> {

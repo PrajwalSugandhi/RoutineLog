@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
+import { RowActionSheet } from '@/components/row-action-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -15,7 +16,7 @@ import { recurringTypeLabel, todayRecurringStatus } from '@/utils/recurring';
 export function HabitsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { entries, loading, error, refresh } = useRecurringTasks();
+  const { entries, loading, error, refresh, hide, remove } = useRecurringTasks();
   const today = todayKey();
   const topSpace = Platform.OS === 'web' ? Spacing.six : insets.top;
   const bottomSpace = insets.bottom + BottomTabInset + Spacing.three;
@@ -67,6 +68,8 @@ export function HabitsScreen() {
                 entry={item}
                 today={today}
                 onPress={() => router.push(`/habits/${item.task.id}`)}
+                onHide={() => confirmHide(item.task.title, () => hide(item.task.id))}
+                onDelete={() => confirmDelete(item.task.title, () => remove(item.task.id))}
               />
             )}
           />
@@ -89,34 +92,68 @@ export function HabitsScreen() {
   );
 }
 
+function confirmHide(title: string, action: () => Promise<void>) {
+  Alert.alert('Hide this everyday task?', `${title} leaves every day until you unhide it. Nothing is deleted.`, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Hide',
+      onPress: () => {
+        action().catch((error: unknown) => {
+          Alert.alert('Could not hide this everyday task', error instanceof Error ? error.message : 'Please try again.');
+        });
+      },
+    },
+  ]);
+}
+
+function confirmDelete(title: string, action: () => Promise<void>) {
+  Alert.alert('Delete this everyday task?', `${title} and every saved day are removed from this phone.`, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: () => {
+        action().catch((error: unknown) => {
+          Alert.alert(
+            'Could not delete this everyday task',
+            error instanceof Error ? error.message : 'Please try again.',
+          );
+        });
+      },
+    },
+  ]);
+}
+
 function HabitRow({
   entry,
   today,
   onPress,
+  onHide,
+  onDelete,
 }: {
   entry: RecurringDayEntry;
   today: string;
   onPress: () => void;
+  onHide: () => void;
+  onDelete: () => void;
 }) {
   const theme = useTheme();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Review ${entry.task.title}`}
-      onPress={onPress}
-      testID={`habit-item-${entry.task.id}`}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.75 : 1 },
-      ]}>
-      <View style={styles.rowBody}>
+    <View style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Review ${entry.task.title}`}
+        onPress={onPress}
+        testID={`habit-item-${entry.task.id}`}
+        style={({ pressed }) => [styles.rowBody, pressed && { opacity: 0.75 }]}>
         <ThemedText numberOfLines={2}>{entry.task.title}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {recurringTypeLabel(entry.task.valueType)} · {todayRecurringStatus(entry.task, entry.value, today)}
         </ThemedText>
-      </View>
-    </Pressable>
+      </Pressable>
+      <RowActionSheet name={entry.task.title} onHide={onHide} onDelete={onDelete} />
+    </View>
   );
 }
 

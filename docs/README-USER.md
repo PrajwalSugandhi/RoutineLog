@@ -29,6 +29,7 @@ Home opens on the current week. The heading is the month, for example **October*
 The three-dot menu is for the day you have selected:
 
 - **Review this day** opens the review. The line under it is the review status.
+- **Hidden** lists tasks and everyday tasks you hid. The only action there is **Unhide**.
 - **Go to today** appears when you are looking at any other date.
 
 In Week view the date number and the dot under it mean different things.
@@ -64,7 +65,7 @@ If you save a task onto a different day from the one you were viewing, Home open
 
 - Tap the circle to mark a task done. Tap it again to reopen it.
 - Tap the title to edit the task.
-- Tap **Delete** and confirm. Cancel leaves the task in place.
+- Tap the three dots for **Hide** or **Delete**. Hide asks once, then removes that task from every day it covers until you unhide it. Delete still asks you to confirm. Cancel leaves the task in place.
 
 A finished task stays on each day in its range, crossed out, so you can still see that it was part of the plan. It finishes when every day in the range is ticked. Ticking again clears that day, and the task opens again if any day is clear. It does not move the task and does not create a copy. Editing a task and choosing **Multiple days** is how a one-day task becomes a longer one.
 
